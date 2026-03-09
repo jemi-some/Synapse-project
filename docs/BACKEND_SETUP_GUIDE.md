@@ -1,9 +1,10 @@
 # FastAPI 로컬 개발 환경 설정 가이드
 
-이 문서에서는 파이썬(Python) 가상환경(Virtual Environment)을 설정하여 안정적이고 쾌적하게 FastAPI 백엔드 서버를 로컬에서 실행하는 방법을 안내합니다.
+이 문서에서는 `uv`(초고속 Python 패키지 매니저)를 사용하여 FastAPI 백엔드 서버를 로컬에서 실행하는 방법을 안내합니다.
 
 ## ✅ 필수 준비물
 - Python 3.11 이상 설치 확인 (터미널에서 `python3 --version` 확인)
+- uv 설치 확인 (터미널에서 `uv --version` 확인, 없으면 아래 0단계 참고)
 - Supabase 프로젝트 생성 완료 (DB 스키마 `00.schema.sql` 실행 완료)
 - OpenAI API Key 발급 완료
 
@@ -11,35 +12,28 @@
 
 ## 🛠️ 백엔드 실행 방법 순서대로 따라하기
 
+### 0단계: uv 설치 (최초 1회)
+[uv](https://docs.astral.sh/uv/)는 Rust로 만든 초고속 Python 패키지 매니저입니다. pip보다 10~100배 빠르며, 가상환경 관리를 자동으로 처리합니다.
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+> 설치 후 터미널을 재시작하고 `uv --version`으로 확인하세요.
+
 ### 1단계: 백엔드 폴더로 이동하기
 터미널을 열고 터미널의 현재 위치(경로)를 백엔드 디렉토리로 맞춥니다.
 ```bash
 cd backend
 ```
 
-### 2단계: 가상환경(venv) 생성하기
-아래 명령어를 입력하여 현재 폴더 안에 `venv`라는 이름의 독립적인 파이썬 환경을 만듭니다. (이 작업은 프로젝트마다 **최초 1회**만 하시면 됩니다.)
+### 2단계: 패키지 설치하기
+`pyproject.toml`에 명시된 의존성을 설치합니다. (최초 1회 또는 의존성 변경 시)
 ```bash
-python3 -m venv venv
+uv sync
 ```
-_(`backend` 하위에 `venv` 폴더가 생성되었는지 확인하세요. 이 폴더는 `.gitignore`에 의해 깃(Git)에 올라가지 않아야 정상입니다.)_
+> `uv sync`는 가상환경 생성 + 패키지 설치를 한번에 처리합니다.
+> 별도로 `python3 -m venv venv`나 `source venv/bin/activate`를 할 필요가 없습니다!
 
-### 3단계: 가상환경 켜기 (활성화)
-가상환경을 만들었다면, 이제부터 이 환경에서 설치한 라이브러리만 사용하겠다고 설정해야 합니다. 매번 터미널을 새로 열어 작업할 때마다 **아래 명령어를 입력하여 활성화**해야 합니다.
-
-```bash
-# Mac/Linux 계열 사용자
-source venv/bin/activate
-```
-> **성공 여부 확인:** 명령어 실행 성공 시, 터미널 프롬프트 가장 왼쪽에 `(venv)` 라는 글자가 나타납니다.
-
-### 4단계: 프로젝트 패키지 설치하기
-가상환경이 활성화된 상태(`(venv)`)에서, `requirements.txt`에 명시된 필요한 라이브러리들을 설치합니다. (이 과정은 새로운 패키지가 추가되었을 때나 **초기 1회** 실행합니다.)
-```bash
-pip install -r requirements.txt
-```
-
-### 5단계: 백엔드(.env) 환경변수 설정하기
+### 3단계: 백엔드(.env) 환경변수 설정하기
 `backend` 디렉토리에 `.env` 파일을 생성하거나 오픈한 뒤, 아래 항목들을 채워 넣습니다.
 
 ```env
@@ -61,14 +55,28 @@ FRONTEND_URL=http://localhost:1234
 > Supabase Dashboard → Settings → API → Project API keys → `service_role` (secret) 값을 복사하세요.
 > ⚠️ 이 키는 RLS를 우회하므로 **절대 프론트엔드에 노출하면 안 됩니다.**
 
-### 6단계: 백엔드 서버 (FastAPI) 실행하기
-모든 준비가 끝났습니다. 이제 개발용 서버를 구동합니다.
+### 4단계: 백엔드 서버 (FastAPI) 실행하기
 ```bash
-uvicorn app.main:app --reload
+uv run uvicorn app.main:app --reload
 ```
-- `--reload` 옵션은 코드를 수정/저장할 때마다 서버를 자동으로 재부팅해주어 로컬 개발 시 매우 편리합니다.
-- 서버가 정상 작동하면 보통 터미널에 `http://0.0.0.0:8000` 등 구동 완료 메시지가 출력됩니다.
-- 브라우저를 열고 `http://localhost:8000/docs` 로 접속하시면, FastAPI가 자동 제공하는 멋진 API 명세서(Swagger UI)를 확인할 수 있습니다.
+- `uv run`은 자동으로 가상환경을 활성화한 뒤 명령을 실행합니다.
+- `--reload` 옵션은 코드 수정 시 서버를 자동 재시작합니다.
+- 서버가 정상 작동하면 `http://127.0.0.1:8000` 에서 구동됩니다.
+- `http://localhost:8000/docs` 에서 Swagger UI로 API를 테스트할 수 있습니다.
+
+---
+
+## 📦 패키지 관리 (uv 명령어)
+
+| 작업 | 명령어 |
+|:---|:---|
+| 패키지 추가 | `uv add 패키지명` |
+| 패키지 제거 | `uv remove 패키지명` |
+| 의존성 동기화 | `uv sync` |
+| 스크립트 실행 | `uv run 명령어` |
+| Python 버전 고정 | `uv python pin 3.11` |
+
+> `pyproject.toml`에 의존성이 자동 기록되고, `uv.lock` 파일로 정확한 버전이 고정됩니다.
 
 ---
 
@@ -96,8 +104,8 @@ uvicorn app.main:app --reload
 ```
 backend/
 ├── .env                          # 환경변수 (Git에 올라가지 않음)
-├── requirements.txt              # Python 패키지 목록
-├── venv/                         # 가상환경 (Git에 올라가지 않음)
+├── pyproject.toml                # 프로젝트 설정 + 의존성 (uv 관리)
+├── uv.lock                       # 의존성 Lock 파일 (정확한 버전 고정)
 └── app/
     ├── main.py                   # FastAPI 앱 진입점
     ├── config.py                 # 환경변수, OpenAI/Supabase 클라이언트 설정
@@ -113,23 +121,16 @@ backend/
 
 ---
 
-## 💡 개발이 끝난 후 가상환경 끄기
-개발 종료 후, 가상환경 모드에서 빠져나오고 싶다면 아래 명령어를 입력합니다.
-```bash
-deactivate
-```
-_(`(venv)` 표시가 터미널에서 사라집니다.)_
-
----
-
 ## 💡 자주 묻는 질문 (FAQ)
-- **Q. 터미널을 새로 열었는데 동작하지 않아요.**
-  - **A.** 터미널을 껐다가 다시 켤 때마다 `cd backend` 후 `source venv/bin/activate` 명령어로 가상환경을 **항상 다시 활성화**해주셔야 합니다.
 
-- **Q. `No module named 'fastapi'` 또는 `uvicorn` 실행 오류가 나요.**
-  - **A.** 가상환경 안의 `fastapi`나 `uvicorn`이 아니라 시스템(컴퓨터)에 깔린 것을 실행하고 있을 때 나는 오류입니다.
-  - **해결책 1:** 명령어를 `python3 -m uvicorn app.main:app --reload` 로 명시해서 쳐보세요.
-  - **해결책 2 (IDE 설정 강력 추천 ⭐):** VS Code / Cursor 환경에서 `Cmd + Shift + P` 를 누르고 `Python: Select Interpreter` 를 검색해 `backend/venv/bin/python` 으로 설정하시면 터미널 종료 후 재시작 시 자동으로 가상환경을 세팅해 주어 이런 오류가 더 이상 발생하지 않습니다.
+- **Q. `uv`가 설치되지 않아요.**
+  - **A.** `curl -LsSf https://astral.sh/uv/install.sh | sh` 실행 후 터미널을 재시작하세요. Mac이라면 `brew install uv`로도 가능합니다.
 
-- **Q. 패키지 설치 오류(Permission/권한)가 납니다.**
-  - **A.** `(venv)` 상태인지 꼭 확인하세요. 글로벌 환경(시스템 파이썬)에서 `pip install`을 시도하면 권한 오류가 잦습니다. 가상환경 내부에서는 원활하게 설치됩니다.
+- **Q. `No module named 'fastapi'` 오류가 나요.**
+  - **A.** `uv sync`를 먼저 실행했는지 확인하세요. `uv run` 없이 직접 `uvicorn`을 실행하면 가상환경 밖에서 실행되어 오류가 날 수 있습니다. 반드시 **`uv run uvicorn ...`** 형태로 실행해주세요.
+
+- **Q. 기존처럼 `source venv/bin/activate` 해야 하나요?**
+  - **A.** 아닙니다! `uv run` 명령어가 자동으로 가상환경을 관리합니다. 수동 활성화가 불필요합니다.
+
+- **Q. IDE(VS Code/Cursor)에서 자동완성이 안 돼요.**
+  - **A.** `Cmd + Shift + P` → `Python: Select Interpreter` → `backend/.venv/bin/python` 을 선택하세요.

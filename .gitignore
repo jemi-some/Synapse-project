@@ -16,12 +16,13 @@ frontend/.parcel-cache/
 frontend/.env
 
 # ========================
-# Backend (Python + FastAPI)
+# Backend (Python + FastAPI + uv)
 # ========================
-backend/__pycache__/
-backend/*.py[cod]
-backend/*$py.class
+__pycache__/
+*.py[cod]
+*$py.class
 backend/venv/
+backend/.venv/
 backend/.env
 
 # ========================
