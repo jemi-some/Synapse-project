@@ -1,0 +1,47 @@
+# ========================
+# OS & Editor
+# ========================
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ========================
+# Frontend (Vanilla JS + Parcel)
+# ========================
+frontend/node_modules/
+frontend/dist/
+frontend/.parcel-cache/
+frontend/.env
+
+# ========================
+# Backend (Python + FastAPI)
+# ========================
+backend/__pycache__/
+backend/*.py[cod]
+backend/*$py.class
+backend/venv/
+backend/.env
+
+# ========================
+# Infra
+# ========================
+.supabase/
+supabase
+test-supabase.js
+.vercel
+.env
+
+# ========================
+# documents
+# ========================
+docs/*.sql
+AGENT.md
+COMPONENTS.md
+
+# ========================
+# System / Misc
+# ========================
+# AI 에이전트 캐시나 중간 생성물 무시 (필요시)
+.mcp/
