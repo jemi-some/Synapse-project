@@ -4,6 +4,8 @@
 
 ## ✅ 필수 준비물
 - Python 3.11 이상 설치 확인 (터미널에서 `python3 --version` 확인)
+- Supabase 프로젝트 생성 완료 (DB 스키마 `00.schema.sql` 실행 완료)
+- OpenAI API Key 발급 완료
 
 ---
 
@@ -38,12 +40,26 @@ pip install -r requirements.txt
 ```
 
 ### 5단계: 백엔드(.env) 환경변수 설정하기
-`backend` 디렉토리에 `.env` 파일을 생성하거나 오픈한 뒤, 실제 OpenAI 등 연동에 필요한 키본적인 설정을 채워 넣습니다.
+`backend` 디렉토리에 `.env` 파일을 생성하거나 오픈한 뒤, 아래 항목들을 채워 넣습니다.
+
 ```env
-# backend/.env 예시
+# backend/.env
+
+# ── Phase 1: 필수 ──
 OPENAI_API_KEY=sk-본인의-실제-키를-입력하세요
+SUPABASE_URL=https://본인프로젝트.supabase.co
+SUPABASE_SERVICE_KEY=eyJ...서비스롤키...    # Supabase Dashboard > Settings > API > service_role key
 FRONTEND_URL=http://localhost:1234
+
+# ── Phase 2: LangSmith (추후 추가) ──
+# LANGCHAIN_TRACING_V2=true
+# LANGCHAIN_API_KEY=ls-...
+# LANGCHAIN_PROJECT=synapse
 ```
+
+> **SUPABASE_SERVICE_KEY 찾는 법:**
+> Supabase Dashboard → Settings → API → Project API keys → `service_role` (secret) 값을 복사하세요.
+> ⚠️ 이 키는 RLS를 우회하므로 **절대 프론트엔드에 노출하면 안 됩니다.**
 
 ### 6단계: 백엔드 서버 (FastAPI) 실행하기
 모든 준비가 끝났습니다. 이제 개발용 서버를 구동합니다.
@@ -53,6 +69,47 @@ uvicorn app.main:app --reload
 - `--reload` 옵션은 코드를 수정/저장할 때마다 서버를 자동으로 재부팅해주어 로컬 개발 시 매우 편리합니다.
 - 서버가 정상 작동하면 보통 터미널에 `http://0.0.0.0:8000` 등 구동 완료 메시지가 출력됩니다.
 - 브라우저를 열고 `http://localhost:8000/docs` 로 접속하시면, FastAPI가 자동 제공하는 멋진 API 명세서(Swagger UI)를 확인할 수 있습니다.
+
+---
+
+## 📡 API 엔드포인트 목록
+
+> 상세 구현은 [backend_implementation_plan.md](./backend_implementation_plan.md) 참조
+
+### Phase 1-A: 벡터화 파이프라인
+
+| Method | 경로 | 설명 |
+|:---|:---|:---|
+| POST | `/api/ai/analyze-image` | 이미지 URL + 메타데이터를 받아 Vision 분석 → context_summary 생성 → 임베딩 벡터화 → Supabase 저장 |
+
+### Phase 1-B: MCP 채팅 라우팅
+
+| Method | 경로 | 설명 |
+|:---|:---|:---|
+| POST | `/api/ai/message` | 메인 피드 메시지 처리 (검색 / 스레드 오픈 / 일반 대화 분기) |
+| POST | `/api/ai/thread` | 스레드 내 멀티턴 대화 처리 |
+
+---
+
+## 📂 프로젝트 구조
+
+```
+backend/
+├── .env                          # 환경변수 (Git에 올라가지 않음)
+├── requirements.txt              # Python 패키지 목록
+├── venv/                         # 가상환경 (Git에 올라가지 않음)
+└── app/
+    ├── main.py                   # FastAPI 앱 진입점
+    ├── config.py                 # 환경변수, OpenAI/Supabase 클라이언트 설정
+    ├── routers/
+    │   └── ai.py                 # API 엔드포인트 정의
+    ├── schemas/
+    │   └── ai.py                 # Pydantic 요청/응답 모델
+    └── services/
+        ├── openai_service.py     # OpenAI API 호출 (Vision, Chat, Embedding)
+        ├── supabase_service.py   # [NEW] Supabase DB 연동 (벡터 저장, 검색)
+        └── mcp_tools.py          # [NEW] MCP 도구 정의 (search_memories 등)
+```
 
 ---
 

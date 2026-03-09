@@ -39,6 +39,7 @@ test-supabase.js
 docs/*.sql
 AGENT.md
 COMPONENTS.md
+idea.md
 
 # ========================
 # System / Misc
