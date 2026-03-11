@@ -159,11 +159,11 @@
 
 ## 5. 백엔드 연동 계획 (Next Action)
 
-### Step 1: 프론트엔드 API 호출 (`/api/ai/analyze-image`)
+### Step 1: 프론트엔드 API 호출 (`/api/ai/vectorize`)
 - 프론트엔드 메타데이터 코드는 이미 완벽하므로 건드리지 않습니다. 프론트엔드에서 AS-IS 포맷으로 백엔드에 그대로 던집니다.
 
 ### Step 2: (백엔드) 날씨 정보 획득 구현 (선택 사항)
-- 백엔드(`/api/ai/analyze-image`) 내에서 프론트가 넘겨준 `metadata.location.lat/lon`와 `captureTime.local`을 파싱합니다.
+- 백엔드(`/api/ai/vectorize`) 내에서 프론트가 넘겨준 `metadata.location.lat/lon`와 `captureTime.local`을 파싱합니다.
 - `OpenWeatherMap API` (Historical API) 등에 서버-투-서버 통신을 보내 그 당시 날씨 정보를 받아 `environment` JSON 노드를 생성합니다.
 
 ### Step 3: (백엔드) Vision API 요청 구현

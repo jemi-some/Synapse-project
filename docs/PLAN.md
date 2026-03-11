@@ -19,9 +19,9 @@
 ### 3.1. 백엔드 아키텍처 변경 (Backend Architecture)
 - **기존**: `analyze-image` API가 모든 로직 처리.
 - **변경**:
-    - `analyze-image`: 사진 분석 및 벡터화 전담.
+    - `vectorize`: 사진 분석 및 벡터화 전담.
     - `message`: MCP 기반 대화 처리 (도구 호출: `save_memo`, `search_memories`).
-    - `search`: 시맨틱 검색 API.
+    - `thread`: 검색 결과에 대한 후속 멀티턴 대화.
 
 ### 3.2. 프론트엔드 변경 (Frontend)
 - **기존**: 사진 업로드 → 질문 생성 UI.
@@ -62,8 +62,8 @@ backend_implementation_plan.md의 기술 스택 참고.
 
 ## 7. 데이터 모델링 (Data Modeling)
 - Chat Sessions: 사용자당 고유한 메인 피드 유지.
-- Knowledge Entries (Media Files): 사진, 일기, 메모를 통합 관리하며 각 항목은 고유한 임베딩 값을 가짐.
-- Threaded Messages: 메인 컨텍스트를 해치지 않는 우측 패널 기반의 깊은 대화 구조.
+- Memories: 사진, 일기, 메모를 통합 관리하며 각 항목은 고유한 임베딩 값을 가짐.
+- Threaded Messages: 메인 컨텍스트를 해치지 않는 스레드 기반의 깊은 대화 구조.
 
 ## 8. 기술적 도전 과제 (Technical Challenges)
 - 멀티모달 컨텍스트 통합: 사진의 시각 정보와 사용자의 감성 메모를 어떻게 하나의 벡터로 완벽히 융합할 것인가?

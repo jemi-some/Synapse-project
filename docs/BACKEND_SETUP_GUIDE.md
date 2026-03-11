@@ -88,7 +88,7 @@ uv run uvicorn app.main:app --reload
 
 | Method | 경로 | 설명 |
 |:---|:---|:---|
-| POST | `/api/ai/analyze-image` | 이미지 URL + 메타데이터를 받아 Vision 분석 → context_summary 생성 → 임베딩 벡터화 → Supabase 저장 |
+| POST | `/api/ai/vectorize` | 이미지 URL + 메타데이터를 받아 Vision 분석 → context_summary 생성 → 임베딩 벡터화 → Supabase 저장 |
 
 ### Phase 1-B: MCP 채팅 라우팅
 
@@ -110,13 +110,13 @@ backend/
     ├── main.py                   # FastAPI 앱 진입점
     ├── config.py                 # 환경변수, OpenAI/Supabase 클라이언트 설정
     ├── routers/
-    │   └── ai.py                 # API 엔드포인트 정의
+    │   └── memory.py             # API 엔드포인트 정의
     ├── schemas/
-    │   └── ai.py                 # Pydantic 요청/응답 모델
+    │   └── memory.py             # Pydantic 요청/응답 모델
     └── services/
         ├── openai_service.py     # OpenAI API 호출 (Vision, Chat, Embedding)
-        ├── supabase_service.py   # [NEW] Supabase DB 연동 (벡터 저장, 검색)
-        └── mcp_tools.py          # [NEW] MCP 도구 정의 (search_memories 등)
+        ├── supabase_service.py   # Supabase DB 연동 (벡터 저장, 검색)
+        └── mcp_tools.py          # MCP 도구 정의 (search_memories 등)
 ```
 
 ---
