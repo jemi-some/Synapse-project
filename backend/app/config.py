@@ -1,12 +1,15 @@
 import os
 from dotenv import load_dotenv
 from openai import OpenAI
+from langsmith.wrappers import wrap_openai
 
 load_dotenv()
 
-# OpenAI 설정
+# OpenAI 설정 + LangSmith 트레이싱
+# wrap_openai()가 모든 OpenAI API 호출을 자동으로 LangSmith에 기록합니다.
+# .env의 LANGCHAIN_TRACING_V2=true 일 때만 활성화됩니다.
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-openai_client = OpenAI(api_key=OPENAI_API_KEY)
+openai_client = wrap_openai(OpenAI(api_key=OPENAI_API_KEY))
 
 # Supabase 설정
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
