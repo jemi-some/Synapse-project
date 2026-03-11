@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import FRONTEND_URL, HOST, PORT
-from app.routers.ai import router as ai_router
+from app.routers.memory import router as memory_router
 
 # 로깅 설정
 logging.basicConfig(
@@ -36,7 +36,7 @@ app.add_middleware(
 )
 
 # 라우터 등록
-app.include_router(ai_router)
+app.include_router(memory_router)
 
 
 @app.get("/health")

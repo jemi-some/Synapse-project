@@ -63,3 +63,21 @@ class MessageResponse(BaseModel):
     response: str                              # LLM의 최종 응답 텍스트
     actions: list[ActionResult] = []           # 실행된 도구 결과 목록 (없으면 빈 배열 = 잡담)
 
+
+# ============================================================
+# 스레드 멀티턴 대화
+# ============================================================
+
+class ThreadRequest(BaseModel):
+    """
+    스레드 내 대화 요청.
+    시나리오 7: 검색 결과에 대한 후속 대화.
+    """
+    message: str                               # 사용자의 새 메시지
+    parentMessageId: str                       # 스레드의 부모 메시지 UUID (검색 결과 메시지 등)
+    sessionId: str                             # chat_sessions UUID
+
+
+class ThreadResponse(BaseModel):
+    """스레드 대화 응답."""
+    response: str                              # LLM의 응답 텍스트

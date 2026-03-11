@@ -156,3 +156,46 @@ async def search_memories(
 
     logger.info("유사도 검색 완료: %d건 반환 (user_id=%s)", len(result.data), user_id)
     return result.data
+
+
+# ============================================================
+# 스레드 대화 조회
+# ============================================================
+
+async def get_thread_messages(
+    parent_message_id: str,
+) -> dict:
+    """
+    스레드의 부모 메시지와 이전 대화 내역을 조회합니다.
+
+    Returns:
+        {
+            "parent": { id, content, role, message_type, ... },  — 부모 메시지 (검색 결과 등)
+            "messages": [ { id, content, role, ... }, ... ]       — 스레드 내 이전 대화 (시간순)
+        }
+    """
+    client = get_client()
+
+    # 부모 메시지 조회
+    parent_result = (
+        client.table("chat_messages")
+        .select("*")
+        .eq("id", parent_message_id)
+        .single()
+        .execute()
+    )
+
+    # 스레드 내 모든 대화 조회 (시간순 정렬)
+    thread_result = (
+        client.table("chat_messages")
+        .select("*")
+        .eq("parent_message_id", parent_message_id)
+        .order("created_at", desc=False)
+        .execute()
+    )
+
+    return {
+        "parent": parent_result.data,
+        "messages": thread_result.data,
+    }
+

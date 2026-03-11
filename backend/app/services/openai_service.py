@@ -1,5 +1,5 @@
 """
-OpenAI 서비스 — 벡터화 파이프라인 + 임베딩
+OpenAI 서비스 — 벡터화 파이프라인 + 임베딩 + MCP 라우팅 + 스레드 대화
 
 Phase 1-A:
 - extract_vision_tags()      — GPT-4o Vision으로 사진의 시각적 태그 추출
@@ -7,8 +7,9 @@ Phase 1-A:
 - create_embedding()         — 요약문을 1536차원 벡터로 변환
 - analyze_and_vectorize()    — 위 3개를 연결하고 Supabase에 저장하는 오케스트레이터
 
-Phase 1-B (예정):
+Phase 1-B:
 - route_message()            — MCP Tool Calling으로 의도 판별 후 분기
+- thread_conversation()      — 스레드 내 멀티턴 대화 (검색 결과 context 기반)
 """
 
 import json
@@ -423,3 +424,76 @@ async def route_message(
         "actions": actions,
     }
 
+
+# ============================================================
+# 스레드 멀티턴 대화 (시나리오 7)
+# ============================================================
+
+THREAD_SYSTEM_PROMPT = """당신은 사용자의 소중한 기억을 함께 이야기하는 AI 비서 'Synapse'입니다.
+
+지금은 메인 피드가 아닌 **스레드** 안에서 대화하고 있습니다.
+스레드의 시작점(부모 메시지)에는 검색 결과나 특정 기억이 포함되어 있습니다.
+이 context를 참고하여 사용자와 깊은 대화를 이어가세요.
+
+## 대화 규칙
+- 부모 메시지의 context(검색 결과, 사진 정보 등)를 자연스럽게 활용하세요.
+- 사용자가 "첫 번째", "두 번째" 등으로 지칭하면, 검색 결과 순서에 맞춰 이해하세요.
+- 따뜻하고 공감적인 톤으로 추억을 함께 회상하세요.
+- 한국어로 응답하세요.
+"""
+
+
+async def thread_conversation(
+    message: str,
+    parent_message_id: str,
+) -> dict:
+    """
+    스레드 내 멀티턴 대화.
+    부모 메시지(검색 결과 등)의 context를 유지하면서 대화를 이어갑니다.
+
+    Args:
+        message: 사용자의 새 메시지
+        parent_message_id: 스레드의 부모 메시지 UUID
+
+    Returns:
+        { "response": "LLM의 응답 텍스트" }
+    """
+    from app.services.supabase_service import get_thread_messages
+
+    # DB에서 부모 메시지 + 이전 스레드 대화 조회
+    thread_data = await get_thread_messages(parent_message_id)
+    parent = thread_data["parent"]
+    previous_messages = thread_data["messages"]
+
+    # 대화 히스토리 구성
+    messages = [
+        {"role": "system", "content": THREAD_SYSTEM_PROMPT},
+    ]
+
+    # 부모 메시지의 내용을 context로 추가
+    if parent:
+        messages.append({
+            "role": "assistant" if parent.get("role") == "assistant" else "user",
+            "content": f"[스레드 시작 — 부모 메시지]\n{parent.get('content', '')}",
+        })
+
+    # 이전 스레드 대화 추가
+    for msg in previous_messages:
+        messages.append({
+            "role": msg.get("role", "user"),
+            "content": msg.get("content", ""),
+        })
+
+    # 사용자의 새 메시지 추가
+    messages.append({"role": "user", "content": message})
+
+    # LLM 응답 생성
+    response = openai_client.chat.completions.create(
+        model=DEFAULT_CHAT_MODEL,
+        messages=messages,
+        temperature=0.7,
+    )
+
+    return {
+        "response": response.choices[0].message.content,
+    }

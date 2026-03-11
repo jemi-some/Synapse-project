@@ -13,11 +13,16 @@ import logging
 
 from fastapi import APIRouter, HTTPException
 
-from app.schemas.ai import (
+from app.schemas.memory import (
     VectorizeRequest, VectorizeResponse,
     MessageRequest, MessageResponse, ActionResult,
+    ThreadRequest, ThreadResponse,
 )
-from app.services.openai_service import analyze_and_vectorize, route_message
+from app.services.openai_service import (
+    analyze_and_vectorize,
+    route_message,
+    thread_conversation,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -98,4 +103,28 @@ async def message_endpoint(req: MessageRequest):
         )
     except Exception as e:
         logger.error("MCP 라우팅 실패: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
+# 스레드 멀티턴 대화
+# ============================================================
+
+@router.post("/thread", response_model=ThreadResponse)
+async def thread_endpoint(req: ThreadRequest):
+    """
+    스레드 내 멀티턴 대화를 처리합니다.
+
+    검색 결과가 메인 피드에 표시된 뒤, 사용자가 후속 대화를 시작하면
+    프론트가 자동으로 스레드를 생성하고 이 엔드포인트를 호출합니다.
+    부모 메시지의 context(검색 결과 등)를 유지하면서 대화를 이어갑니다.
+    """
+    try:
+        result = await thread_conversation(
+            message=req.message,
+            parent_message_id=req.parentMessageId,
+        )
+        return ThreadResponse(response=result["response"])
+    except Exception as e:
+        logger.error("스레드 대화 실패: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
