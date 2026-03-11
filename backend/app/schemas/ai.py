@@ -35,18 +35,31 @@ class VectorizeResponse(BaseModel):
 
 
 # ============================================================
-# Phase 1-B: MCP 채팅 라우팅 (예정)
+# Phase 1-B: MCP 채팅 라우팅 (텍스트 입력)
 # ============================================================
-# 아래 모델들은 Phase 1-B에서 구현할 때 추가됩니다.
-#
-# class MessageRequest(BaseModel):
-#     """메인 피드 텍스트 입력."""
-#     message: str
-#     userId: str
-#     sessionId: str
-#
-# class MessageResponse(BaseModel):
-#     """MCP 라우팅 결과."""
-#     action: str          # "search" | "save_memo" | "chat" | "open_thread"
-#     response: Optional[str] = None
-#     searchResults: Optional[list] = None
+
+class ActionResult(BaseModel):
+    """MCP 도구 실행 결과 1건."""
+    action: str                                # "search" | "save_memo"
+    query: Optional[str] = None                # search일 때: 검색 쿼리
+    content: Optional[str] = None              # save_memo일 때: 저장한 메모 내용
+    results: Optional[list] = None             # search일 때: 검색 결과 목록
+    count: Optional[int] = None                # search일 때: 검색 결과 수
+    memoryId: Optional[str] = None             # save_memo일 때: 저장된 memories UUID
+
+
+class MessageRequest(BaseModel):
+    """
+    메인 피드 텍스트 입력 요청.
+    시나리오 3~6(텍스트만)에서 사용됩니다.
+    """
+    message: str                               # 사용자 입력 텍스트
+    userId: str                                # Supabase Auth 사용자 UUID
+    sessionId: str                             # chat_sessions UUID
+
+
+class MessageResponse(BaseModel):
+    """MCP 라우팅 결과."""
+    response: str                              # LLM의 최종 응답 텍스트
+    actions: list[ActionResult] = []           # 실행된 도구 결과 목록 (없으면 빈 배열 = 잡담)
+

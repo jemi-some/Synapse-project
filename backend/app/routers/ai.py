@@ -4,7 +4,7 @@ AI API 라우터
 Phase 1-A:
 - POST /api/ai/vectorize  — 사진 벡터화 파이프라인 (Vision → 요약 → 임베딩 → DB 저장)
 
-Phase 1-B (예정):
+Phase 1-B:
 - POST /api/ai/message    — 메인 피드 텍스트 입력 (MCP 라우팅)
 - POST /api/ai/thread     — 스레드 내 멀티턴 대화
 """
@@ -13,8 +13,11 @@ import logging
 
 from fastapi import APIRouter, HTTPException
 
-from app.schemas.ai import VectorizeRequest, VectorizeResponse
-from app.services.openai_service import analyze_and_vectorize
+from app.schemas.ai import (
+    VectorizeRequest, VectorizeResponse,
+    MessageRequest, MessageResponse, ActionResult,
+)
+from app.services.openai_service import analyze_and_vectorize, route_message
 
 logger = logging.getLogger(__name__)
 
@@ -52,4 +55,47 @@ async def vectorize_endpoint(req: VectorizeRequest):
         )
     except Exception as e:
         logger.error("벡터화 파이프라인 실패: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
+# Phase 1-B: MCP 채팅 라우팅
+# ============================================================
+
+@router.post("/message", response_model=MessageResponse)
+async def message_endpoint(req: MessageRequest):
+    """
+    텍스트 메시지를 MCP 라우팅으로 처리합니다.
+
+    LLM이 사용자 의도를 판단하여:
+      - 검색 → search_memories 도구 호출 → 유사한 기억 반환
+      - 메모 → save_memo 도구 호출 → memories 테이블에 저장
+      - 잡담 → 도구 없이 직접 응답
+      - 위 조합 → 여러 도구 동시 호출 가능
+    """
+    try:
+        result = await route_message(
+            message=req.message,
+            user_id=req.userId,
+            session_id=req.sessionId,
+        )
+
+        # route_message 결과를 ActionResult 모델로 변환
+        actions = []
+        for action_data in result.get("actions", []):
+            actions.append(ActionResult(
+                action=action_data.get("action", ""),
+                query=action_data.get("query"),
+                content=action_data.get("content"),
+                results=action_data.get("results"),
+                count=action_data.get("count"),
+                memoryId=action_data.get("memory_id"),
+            ))
+
+        return MessageResponse(
+            response=result["response"],
+            actions=actions,
+        )
+    except Exception as e:
+        logger.error("MCP 라우팅 실패: %s", e)
         raise HTTPException(status_code=500, detail=str(e))

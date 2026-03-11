@@ -256,3 +256,170 @@ async def analyze_and_vectorize(
         "context_summary": context_summary,
         "embedding_dimensions": len(embedding),
     }
+
+
+# ============================================================
+# Phase 1-B: MCP 채팅 라우팅
+# ============================================================
+# route_message()가 전체 흐름을 관장합니다:
+#   1. LLM에게 사용자 메시지 + 도구 목록 전달 (1st turn)
+#   2. LLM이 도구 호출을 결정하면, 실제 함수 실행
+#   3. 실행 결과를 LLM에게 다시 전달 (2nd turn)
+#   4. LLM이 최종 사용자 응답 생성
+
+
+async def _execute_search_memories(query: str, user_id: str) -> dict:
+    """
+    search_memories 도구 실행기.
+    LLM이 "search_memories를 호출하겠다"고 결정하면 이 함수가 실행됩니다.
+
+    흐름: 검색어 → 임베딩 → Supabase 유사도 검색 → 결과 반환
+    """
+    from app.services.supabase_service import search_memories
+
+    # 검색어를 벡터로 변환
+    query_embedding = await create_embedding(query)
+
+    # DB에서 유사한 기억 검색
+    results = await search_memories(
+        query_embedding=query_embedding,
+        user_id=user_id,
+    )
+
+    return {
+        "action": "search",
+        "query": query,
+        "results": results,
+        "count": len(results),
+    }
+
+
+async def _execute_save_memo(
+    content: str, user_id: str, session_id: str
+) -> dict:
+    """
+    save_memo 도구 실행기.
+    LLM이 "save_memo를 호출하겠다"고 결정하면 이 함수가 실행됩니다.
+
+    흐름: 메모 텍스트 → context_summary 생성 → 임베딩 → DB 저장
+    """
+    from app.services.supabase_service import save_text_memory
+
+    # 메모를 자연어 요약 (메모 자체가 짧으면 그대로 사용될 수 있음)
+    context_summary = await generate_context_summary(user_text=content)
+
+    # 요약문을 벡터로 변환
+    embedding = await create_embedding(context_summary)
+
+    # DB에 저장
+    saved = await save_text_memory(
+        user_id=user_id,
+        chat_session_id=session_id,
+        user_text=content,
+        context_summary=context_summary,
+        embedding=embedding,
+    )
+
+    return {
+        "action": "save_memo",
+        "content": content,
+        "memory_id": saved[0]["id"] if saved else None,
+    }
+
+
+async def route_message(
+    message: str,
+    user_id: str,
+    session_id: str,
+) -> dict:
+    """
+    MCP 라우팅 오케스트레이터.
+    사용자의 텍스트 메시지를 분석하여 적절한 도구를 호출하고 응답을 생성합니다.
+
+    Args:
+        message: 사용자가 입력한 텍스트
+        user_id: 사용자 UUID
+        session_id: 채팅 세션 UUID
+
+    Returns:
+        {
+            "response": "LLM의 최종 응답 텍스트",
+            "actions": [
+                { "action": "search", "query": "...", "results": [...] },
+                { "action": "save_memo", "content": "...", "memory_id": "..." }
+            ]
+        }
+    """
+    from app.services.mcp_tools import TOOLS, ROUTING_SYSTEM_PROMPT
+
+    # ── 1st Turn: LLM에게 메시지 + 도구 전달 ──
+    messages = [
+        {"role": "system", "content": ROUTING_SYSTEM_PROMPT},
+        {"role": "user", "content": message},
+    ]
+
+    response = openai_client.chat.completions.create(
+        model=DEFAULT_CHAT_MODEL,
+        messages=messages,
+        tools=TOOLS,
+        tool_choice="auto",  # LLM이 도구 호출 여부를 자동 판단
+    )
+
+    assistant_message = response.choices[0].message
+    tool_calls = assistant_message.tool_calls
+    actions = []
+
+    # ── 도구 호출이 없으면 (일반 잡담) → 바로 반환 ──
+    if not tool_calls:
+        return {
+            "response": assistant_message.content,
+            "actions": [],
+        }
+
+    # ── 2nd Turn: 도구 실행 → 결과를 LLM에게 전달 ──
+
+    # 대화 히스토리에 assistant의 도구 호출 결정을 추가
+    messages.append(assistant_message)
+
+    # 각 도구 호출을 순차 실행
+    for tool_call in tool_calls:
+        fn_name = tool_call.function.name
+        fn_args = json.loads(tool_call.function.arguments)
+
+        logger.info("MCP 도구 호출: %s(%s)", fn_name, fn_args)
+
+        # 도구별 실제 함수 실행
+        if fn_name == "search_memories":
+            result = await _execute_search_memories(
+                query=fn_args["query"],
+                user_id=user_id,
+            )
+        elif fn_name == "save_memo":
+            result = await _execute_save_memo(
+                content=fn_args["content"],
+                user_id=user_id,
+                session_id=session_id,
+            )
+        else:
+            result = {"error": f"알 수 없는 도구: {fn_name}"}
+
+        actions.append(result)
+
+        # 도구 실행 결과를 대화 히스토리에 추가
+        messages.append({
+            "role": "tool",
+            "tool_call_id": tool_call.id,
+            "content": json.dumps(result, ensure_ascii=False, default=str),
+        })
+
+    # ── 2nd Turn 응답: 도구 결과를 본 LLM이 최종 응답 생성 ──
+    final_response = openai_client.chat.completions.create(
+        model=DEFAULT_CHAT_MODEL,
+        messages=messages,
+    )
+
+    return {
+        "response": final_response.choices[0].message.content,
+        "actions": actions,
+    }
+
