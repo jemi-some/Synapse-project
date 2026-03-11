@@ -41,6 +41,8 @@ docs/*.sql
 AGENT.md
 COMPONENTS.md
 idea.md
+scenario.md
+reference_papers.md
 
 # ========================
 # System / Misc

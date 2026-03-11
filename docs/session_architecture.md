@@ -62,7 +62,7 @@
 ### DB 관점
 
 - `chat_sessions`: 사용자당 **1개** (최초 로그인 시 생성)
-- `chat_messages`: 해당 세션에 모든 메시지가 시간순으로 적재
+- `memories`: 검색 가능한 모든 기억 (사진, 사진+텍스트, 텍스트 메모) — 임베딩은 여기서만
+- `chat_messages`: 해당 세션에 모든 메시지가 시간순으로 적재 (화면 표시 전용, 벡터화 없음)
   - `parent_message_id IS NULL` → 메인 피드 메시지
   - `parent_message_id IS NOT NULL` → 스레드 메시지
-- `media_files`: 업로드된 사진은 해당 세션에 귀속
