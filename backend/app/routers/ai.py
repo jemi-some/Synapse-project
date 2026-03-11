@@ -1,62 +1,55 @@
 """
-AI API 라우터 — Edge Function 엔드포인트를 FastAPI로 대체
+AI API 라우터
 
-엔드포인트 매핑:
-- POST /api/ai/analyze-image  ← analyze-image Edge Function
-- POST /api/ai/chat           ← openai-chat Edge Function (기본 대화)
+Phase 1-A:
+- POST /api/ai/vectorize  — 사진 벡터화 파이프라인 (Vision → 요약 → 임베딩 → DB 저장)
+
+Phase 1-B (예정):
+- POST /api/ai/message    — 메인 피드 텍스트 입력 (MCP 라우팅)
+- POST /api/ai/thread     — 스레드 내 멀티턴 대화
 """
 
 import logging
 
 from fastapi import APIRouter, HTTPException
 
-from app.schemas.ai import (
-    ImageAnalysisRequest, ImageAnalysisResponse,
-    ChatRequest, ChatResponse,
-)
-from app.services.openai_service import (
-    analyze_image,
-    generate_chat_response,
-)
+from app.schemas.ai import VectorizeRequest, VectorizeResponse
+from app.services.openai_service import analyze_and_vectorize
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/ai", tags=["AI"])
 
 
-@router.post("/analyze-image", response_model=ImageAnalysisResponse)
-async def analyze_image_endpoint(req: ImageAnalysisRequest):
-    """이미지 분석 (description / emotion / context_analysis)"""
+# ============================================================
+# Phase 1-A: 사진 벡터화 파이프라인
+# ============================================================
+
+@router.post("/vectorize", response_model=VectorizeResponse)
+async def vectorize_endpoint(req: VectorizeRequest):
+    """
+    사진 벡터화 파이프라인을 실행합니다.
+
+    프론트엔드 호출 순서:
+      1. 프론트가 Supabase Storage에 사진 업로드
+      2. 프론트가 memories 테이블에 INSERT (file_url, metadata 등)
+      3. 프론트가 이 엔드포인트 호출 (memoryId + imageUrl + metadata)
+      4. 백엔드가 Vision 분석 → 요약 → 임베딩 → DB UPDATE 수행
+      5. 프론트에 성공 여부 반환
+    """
     try:
-        result = await analyze_image(
+        result = await analyze_and_vectorize(
             image_url=req.imageUrl,
-            analysis_type=req.analysisType,
             metadata=req.metadata,
+            memory_id=req.memoryId,
+            user_text=req.userText,
         )
-        return ImageAnalysisResponse(
+        return VectorizeResponse(
             success=True,
-            result=result,
-            analysisType=req.analysisType,
+            visionTags=result["vision_tags"],
+            contextSummary=result["context_summary"],
+            embeddingDimensions=result["embedding_dimensions"],
         )
     except Exception as e:
-        logger.error("이미지 분석 실패: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/chat", response_model=ChatResponse)
-async def chat_endpoint(req: ChatRequest):
-    """채팅 응답 생성"""
-    try:
-        history = [{"role": m.role, "content": m.content} for m in req.conversationHistory]
-        photo_ctx = req.photoContext.model_dump() if req.photoContext else None
-
-        response_text = await generate_chat_response(
-            message=req.message,
-            conversation_history=history,
-            image_url=req.imageUrl,
-            photo_context=photo_ctx,
-        )
-        return ChatResponse(success=True, response=response_text)
-    except Exception as e:
-        logger.error("채팅 응답 생성 실패: %s", e)
+        logger.error("벡터화 파이프라인 실패: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
