@@ -19,6 +19,81 @@ export default class ChatBubbles extends Component {
     this.streamInterval = null
   }
 
+  setPreviewMode(previewType = 'ai_text') {
+    const previewMessages = this.getPreviewMessages(previewType)
+    if (!previewMessages) {
+      console.warn('알 수 없는 채팅 버블 프리뷰 타입:', previewType)
+      return
+    }
+
+    // 스트리밍/로딩 상태 정리
+    if (this.streamInterval) {
+      clearInterval(this.streamInterval)
+      this.streamInterval = null
+    }
+    this.stopLoadingMessages()
+
+    this.state.messages = previewMessages
+    this.state.isVisible = true
+    this.state.isAnimating = false
+    this.state.isStreaming = false
+    this.state.isLoading = false
+    this.state.currentStreamingId = null
+    this.render()
+  }
+
+  getPreviewMessages(type) {
+    const commonUser = {
+      type: 'user',
+      content: '이 사진 언제 어디서 찍었는지 알려줄 수 있어?',
+      imageUrl: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=600&q=60',
+      id: 'preview-user'
+    }
+
+    if (type === 'ai_text') {
+      return [
+        commonUser,
+        {
+          type: 'ai',
+          content: '📍 제주 렛츠런팜 주변으로 보여요. 2018년 7월 31일 오후에 촬영된 해바라기 밭 사진 같네요. 이날 남긴 메모에는 "여름 저녁 공기가 너무 좋았다"고 적혀 있어요. 기억나는 장면이 있다면 들려주세요!',
+          id: 'preview-ai-text',
+          isStreaming: false
+        }
+      ]
+    }
+
+    if (type === 'ai_search') {
+      return [
+        {
+          type: 'ai',
+          content: '비슷한 추억 두 건을 찾았어요. 어떤 순간인지 더 이야기해볼까요?',
+          id: 'preview-ai-search-intro'
+        },
+        {
+          type: 'action',
+          id: 'preview-ai-search-action',
+          actionData: {
+            action: 'search_photos',
+            results: [
+              {
+                image_url: 'https://images.unsplash.com/photo-1470770903676-69b98201ea1c?auto=format&fit=crop&w=400&q=60',
+                capture_time: '2023-03-09T12:00:00Z',
+                description: '흐린 날 퇴근길 하늘'
+              },
+              {
+                image_url: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=60',
+                capture_time: '2022-11-21T08:00:00Z',
+                description: '가을 아침의 공원 산책'
+              }
+            ]
+          }
+        }
+      ]
+    }
+
+    return null
+  }
+
   showBubbles(userMessage, aiResponse = null) {
     // 이전 버블들 제거 (fade out 애니메이션)
     if (this.state.isVisible) {
@@ -33,29 +108,56 @@ export default class ChatBubbles extends Component {
   }
 
   // 사용자 메시지 추가
-  showUserMessage(userMessage) {
+  showUserMessage(userMessage, options = {}) {
     const messageId = `user-${Date.now()}`
-    
+
     // 메시지 배열에 사용자 메시지 추가
     this.state.messages.push({
       type: 'user',
       content: userMessage,
+      imageUrl: options.imageUrl || null,
+      metadata: options.metadata || null,
       id: messageId,
       isStreaming: false
     })
-    
+
     this.state.isVisible = true
     this.state.isAnimating = true
     this.render()
-    
+
     // 사용자 메시지 추가 후 스크롤
     this.scrollToBottom()
+    return messageId
   }
-    
+
+  updateMessage(messageId, updates = {}) {
+    if (!messageId) return
+    const targetIndex = this.state.messages.findIndex(msg => msg.id === messageId)
+    if (targetIndex === -1) return
+
+    const { metadata: metadataUpdates, ...restUpdates } = updates
+    const existing = this.state.messages[targetIndex]
+    const nextMessage = {
+      ...existing,
+      ...restUpdates
+    }
+
+    if (metadataUpdates) {
+      nextMessage.metadata = {
+        ...(existing.metadata || {}),
+        ...metadataUpdates
+      }
+    }
+
+    this.state.messages[targetIndex] = nextMessage
+    this.render()
+    this.scrollToBottomIfAtBottom()
+  }
+
   // 일기 엔트리 표시
   showDiaryEntry(content) {
     const messageId = `diary-${Date.now()}`
-    
+
     // 메시지 배열에 일기 추가
     this.state.messages.push({
       type: 'diary',
@@ -63,7 +165,7 @@ export default class ChatBubbles extends Component {
       id: messageId,
       isStreaming: false
     })
-    
+
     this.state.isVisible = true
     this.state.isAnimating = true
     this.render()
@@ -75,9 +177,9 @@ export default class ChatBubbles extends Component {
     this.state.isVisible = true
     this.state.isAnimating = true
     this.state.isStreaming = false
-    
+
     this.render()
-    
+
     setTimeout(() => {
       this.state.isAnimating = false
     }, 600)
@@ -86,7 +188,7 @@ export default class ChatBubbles extends Component {
   // AI가 먼저 대화를 시작하는 메서드
   showAIFirstMessage(aiMessage) {
     const messageId = `ai-${Date.now()}`
-    
+
     // 메시지 배열에 AI 메시지 추가
     this.state.messages.push({
       type: 'ai',
@@ -94,12 +196,12 @@ export default class ChatBubbles extends Component {
       id: messageId,
       isStreaming: true
     })
-    
+
     this.state.isVisible = true
     this.state.isAnimating = true
     this.state.currentStreamingId = messageId
     this.render()
-    
+
     // 스트리밍으로 AI 메시지 표시
     setTimeout(() => {
       this.startStreamingResponse(aiMessage, messageId)
@@ -109,7 +211,7 @@ export default class ChatBubbles extends Component {
   // 채팅 모드에서 AI 메시지 응답 (깜박임 방지용)
   showAIMessage(aiMessage) {
     const messageId = `ai-${Date.now()}`
-    
+
     // 메시지 배열에 AI 메시지 추가
     this.state.messages.push({
       type: 'ai',
@@ -117,15 +219,15 @@ export default class ChatBubbles extends Component {
       id: messageId,
       isStreaming: true
     })
-    
+
     this.state.isVisible = true
     this.state.isAnimating = true
     this.state.currentStreamingId = messageId
     this.render()
-    
+
     // AI 메시지 버블 추가 후 스크롤
     this.scrollToBottom()
-    
+
     // 애니메이션이 끝난 후 스트리밍 시작 (깜박임 방지)
     setTimeout(() => {
       this.state.isAnimating = false // 애니메이션 상태 고정
@@ -139,10 +241,10 @@ export default class ChatBubbles extends Component {
     this.state.isVisible = true
     this.state.isAnimating = true
     this.state.isStreaming = false
-    
+
     // AI 버블만 표시
     this.render()
-    
+
     // 스트리밍으로 AI 메시지 표시
     setTimeout(() => {
       this.startStreamingResponse(aiMessage)
@@ -154,9 +256,9 @@ export default class ChatBubbles extends Component {
     this.state.currentAI = aiResponse || ''
     this.state.isVisible = true
     this.state.isAnimating = true
-    
+
     this.render()
-    
+
     // 애니메이션 완료 후 상태 업데이트
     setTimeout(() => {
       this.state.isAnimating = false
@@ -166,7 +268,7 @@ export default class ChatBubbles extends Component {
   hideBubbles() {
     const container = this.el
     container.classList.add('fade-out')
-    
+
     setTimeout(() => {
       this.state.isVisible = false
       this.state.messages = [] // 메시지 배열 초기화
@@ -174,17 +276,17 @@ export default class ChatBubbles extends Component {
       this.state.streamText = ''
       this.state.isLoading = false
       this.state.currentStreamingId = null
-      
+
       // DOM 완전 초기화
       container.innerHTML = ''
       container.classList.remove('fade-out')
-      
+
       // 스트리밍 인터벌과 로딩 인터벌 정리
       if (this.streamInterval) {
         clearInterval(this.streamInterval)
         this.streamInterval = null
       }
-      
+
       // 로딩 메시지 인터벌도 정리
       this.stopLoadingMessages()
     }, 300)
@@ -209,55 +311,55 @@ export default class ChatBubbles extends Component {
         isStreaming: true
       })
     }
-    
+
     this.state.isStreaming = true
     this.state.streamText = ''
     this.state.currentStreamingId = messageId
-    
+
     this.render()
-    
+
     // AI 스트리밍 시작 시 ChatInput 버튼 업데이트
     this.updateChatInputButton()
-    
+
     let currentIndex = 0
     const streamSpeed = 50 // 밀리초 단위 (조정 가능)
-    
+
     // 약간의 딜레이 후 스트리밍 시작
     setTimeout(() => {
       this.streamInterval = setInterval(() => {
         if (currentIndex < fullResponse.length) {
           this.state.streamText += fullResponse[currentIndex]
-          
+
           // 해당 메시지를 찾아서 업데이트
           const message = this.state.messages.find(msg => msg.id === messageId)
           if (message) {
             message.content = this.state.streamText
           }
-          
+
           this.render()
-          
+
           // 스트리밍 중 주기적으로 스크롤 (성능 고려해서 10글자마다)
           // 단, 사용자가 위로 스크롤한 상태라면 방해하지 않음
           if (currentIndex % 10 === 0) {
             this.scrollToBottomIfAtBottom()
           }
-          
+
           currentIndex++
         } else {
           // 스트리밍 완료
           this.state.isStreaming = false
           this.state.currentStreamingId = null
-          
+
           // 메시지의 스트리밍 상태 업데이트
           const message = this.state.messages.find(msg => msg.id === messageId)
           if (message) {
             message.isStreaming = false
           }
-          
+
           clearInterval(this.streamInterval)
           this.streamInterval = null
           this.scrollToBottom()
-          
+
           // AI 스트리밍 완료 시 ChatInput 버튼 업데이트
           this.updateChatInputButton()
         }
@@ -281,14 +383,13 @@ export default class ChatBubbles extends Component {
       console.log('⚠️ 이미 로딩 버블 표시 중 - 중복 호출 스킵')
       return
     }
-    
+
     console.log('🎬 로딩 버블 표시 시작')
     this.state.isLoading = true
     this.state.isVisible = true
-    this.state.messages = [] // 메시지 배열 초기화
     this.state.isStreaming = false
     this.state.loadingMessageIndex = 0
-    
+
     this.render()
     this.startLoadingMessages()
   }
@@ -297,7 +398,7 @@ export default class ChatBubbles extends Component {
   startLoadingMessages() {
     const loadingMessages = [
       "사진을 분석하고 있어요... ✨",
-      "어떤 이야기가 담겨있을까요? 🤔", 
+      "어떤 이야기가 담겨있을까요? 🤔",
       "곧 흥미로운 질문을 드릴게요! ⏰",
       "사진 속 순간들을 살펴보고 있어요 📸",
       "특별한 질문을 준비하고 있어요 💭"
@@ -324,7 +425,7 @@ export default class ChatBubbles extends Component {
   hideLoadingAndStartResponse(aiResponse) {
     this.state.isLoading = false
     this.stopLoadingMessages()
-    
+
     // AI 메시지 추가
     const messageId = `ai-${Date.now()}`
     this.state.messages.push({
@@ -333,7 +434,7 @@ export default class ChatBubbles extends Component {
       id: messageId,
       isStreaming: true
     })
-    
+
     this.startStreamingResponse(aiResponse, messageId)
   }
 
@@ -343,32 +444,27 @@ export default class ChatBubbles extends Component {
       return
     }
 
-    // 로딩 상태일 때는 로딩 버블만 표시
-    if (this.state.isLoading) {
-      this.el.innerHTML = `
-        <div class="chat-bubbles">
-          <div class="ai-bubble glass-bubble">
-            <div class="bubble-content">
-              <div class="bubble-text loading-message">
-                ${this.getLoadingMessage()}
-              </div>
-              <div class="loading-dots">
-                <span class="dot"></span>
-                <span class="dot"></span>
-                <span class="dot"></span>
-              </div>
-            </div>
+  // 로딩 상태일 때는 로딩 버블만 표시
+    const loadingHtml = this.state.isLoading ? `
+      <div class="ai-bubble glass-bubble">
+        <div class="bubble-content">
+          <div class="bubble-text loading-message">
+            ${this.getLoadingMessage()}
+          </div>
+          <div class="loading-dots">
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
           </div>
         </div>
-      `
-      return
-    }
+      </div>
+    ` : ''
 
     // 메시지 배열을 기반으로 렌더링
     const messagesHtml = this.state.messages.map((message, index) => {
       const isLatest = index === this.state.messages.length - 1
       const bubbleClass = this.state.isAnimating && isLatest ? 'slide-up' : ''
-      
+
       if (message.type === 'ai') {
         const isCurrentlyStreaming = message.isStreaming && this.state.currentStreamingId === message.id
         return `
@@ -381,6 +477,14 @@ export default class ChatBubbles extends Component {
             </div>
           </div>
         `
+      } else if (message.type === 'action') {
+        // AI 도구 호출 결과 (사진 렌더링, 메모 렌더링 등)
+        if (message.actionData.action === 'search_photos' || message.actionData.action === 'view_my_photos') {
+          return this.renderPhotoCards(message.actionData.results, message.id, bubbleClass)
+        } else if (message.actionData.action === 'search_memos' || message.actionData.action === 'view_my_memos') {
+          return this.renderMemoList(message.actionData.results, message.id, bubbleClass)
+        }
+        return ''
       } else if (message.type === 'diary') {
         return `
           <div class="diary-bubble glass-bubble ${bubbleClass}">
@@ -390,11 +494,27 @@ export default class ChatBubbles extends Component {
           </div>
         `
       } else {
-        return `
-          <div class="user-bubble glass-bubble ${bubbleClass}">
+        const hasImage = !!message.imageUrl
+        const hasText = typeof message.content === 'string' && message.content.trim().length > 0
+
+        const imageBlock = hasImage ? `
+          <div class="user-image-wrapper">
+            <img src="${message.imageUrl}" alt="사용자 첨부 이미지" class="bubble-image" />
+          </div>
+        ` : ''
+
+        const textBlock = hasText ? `
+          <div class="user-bubble glass-bubble">
             <div class="bubble-content">
               <div class="bubble-text">${this.escapeHtml(message.content)}</div>
             </div>
+          </div>
+        ` : ''
+
+        return `
+          <div class="user-message-block ${bubbleClass}">
+            ${imageBlock}
+            ${textBlock}
           </div>
         `
       }
@@ -403,26 +523,135 @@ export default class ChatBubbles extends Component {
     this.el.innerHTML = `
       <div class="chat-bubbles ${this.state.isAnimating ? 'animating' : ''}">
         ${messagesHtml}
+        ${loadingHtml}
       </div>
     `
-    
+
+    // 이벤트 리스너 연동: 이야기 나누기 (스레드) 버튼
+    const threadBtns = this.el.querySelectorAll('.thread-btn')
+    threadBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const messageId = btn.dataset.messageId
+        // actionData를 찾아서 패널로 넘김
+        const msg = this.state.messages.find(m => m.id === messageId)
+        if (msg && msg.actionData) {
+          const threadPanel = window.app?.threadPanel
+          if (threadPanel) {
+            threadPanel.open(messageId, msg.actionData)
+          }
+        }
+      })
+    })
+
     // 스트리밍 중에는 강제로 DOM 업데이트
     if (this.state.isStreaming) {
       this.el.offsetHeight // 강제 reflow 트리거
     }
   }
 
+  showSearchResults(actions) {
+    if (!actions || actions.length === 0) return
+
+    actions.forEach(actionGroup => {
+      const messageId = `ai-action-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      this.state.messages.push({
+        type: 'action',
+        actionData: actionGroup,
+        id: messageId,
+        isStreaming: false
+      })
+    })
+
+    this.render()
+    this.scrollToBottom()
+  }
+
+  renderPhotoCards(results, messageId, bubbleClass = '') {
+    if (!results || results.length === 0) return ''
+
+    const cardsHtml = results.map(photo => {
+      const url = photo.image_url || photo.file_url || photo.url
+      const desc = photo.description || '사진'
+      let dateText = ''
+      if (photo.capture_time) {
+        dateText = new Date(photo.capture_time).toLocaleDateString()
+      } else if (photo.created_at) {
+        dateText = new Date(photo.created_at).toLocaleDateString()
+      }
+      return `
+        <div class="photo-card action-card">
+          <img src="${url}" alt="검색된 사진" class="photo-card-img" />
+          ${dateText ? `<div class="photo-card-date">${this.escapeHtml(dateText)}</div>` : ''}
+          ${desc ? `<div class="photo-card-desc">${this.escapeHtml(desc)}</div>` : ''}
+        </div>
+      `
+    }).join('')
+
+    return `
+      <div class="action-bubble glass-bubble ${bubbleClass}">
+        <div class="bubble-content action-container">
+          <div class="photo-cards-container">
+            ${cardsHtml}
+          </div>
+          <button class="action-btn thread-btn" data-message-id="${messageId}">이 사진들에 대해 이야기 나누기</button>
+        </div>
+      </div>
+    `
+  }
+
+  renderMemoList(results, messageId, bubbleClass = '') {
+    if (!results || results.length === 0) return ''
+
+    const memosHtml = results.map(memo => {
+      let dateText = ''
+      if (memo.capture_time) {
+        dateText = new Date(memo.capture_time).toLocaleDateString()
+      } else if (memo.created_at) {
+        dateText = new Date(memo.created_at).toLocaleDateString()
+      }
+      const content = memo.context || memo.user_text || memo.description || '기록'
+
+      return `
+        <div class="memo-item">
+          <div class="memo-bullet"></div>
+          <div class="memo-content">
+            ${dateText ? `<div class="memo-date">${this.escapeHtml(dateText)}</div>` : ''}
+            <div class="memo-text">${this.escapeHtml(content)}</div>
+          </div>
+        </div>
+      `
+    }).join('')
+
+    return `
+      <div class="action-bubble glass-bubble ${bubbleClass}">
+        <div class="bubble-content action-container">
+          <div class="memo-list-container">
+            ${memosHtml}
+          </div>
+          <button class="action-btn thread-btn" data-message-id="${messageId}">이 기록들에 대해 이야기 나누기</button>
+        </div>
+      </div>
+    `
+  }
+
   // 스크롤을 맨 아래로
   scrollToBottom() {
     setTimeout(() => {
-      this.el.scrollTop = this.el.scrollHeight
+      // .content-scroll이 실제 스크롤 영역이므로 이를 찾아서 스크롤
+      const contentScroll = document.querySelector('.content-scroll')
+      if (contentScroll) {
+        contentScroll.scrollTop = contentScroll.scrollHeight
+      }
     }, 50)
   }
 
   // 현재 맨 아래에 있을 때만 스크롤 (사용자가 위로 스크롤했다면 방해하지 않음)
   scrollToBottomIfAtBottom() {
     setTimeout(() => {
-      const element = this.el
+      // .content-scroll이 실제 스크롤 영역
+      const element = document.querySelector('.content-scroll')
+      if (!element) return
+
       const scrollTop = element.scrollTop
       const scrollHeight = element.scrollHeight
       const clientHeight = element.clientHeight
@@ -475,12 +704,12 @@ export default class ChatBubbles extends Component {
   getLoadingMessage() {
     const loadingMessages = [
       "사진을 분석하고 있어요... ✨",
-      "어떤 이야기가 담겨있을까요? 🤔", 
+      "어떤 이야기가 담겨있을까요? 🤔",
       "곧 흥미로운 질문을 드릴게요! ⏰",
       "사진 속 순간들을 살펴보고 있어요 📸",
       "특별한 질문을 준비하고 있어요 💭"
     ]
-    
+
     const index = this.state.loadingMessageIndex || 0
     return loadingMessages[index]
   }

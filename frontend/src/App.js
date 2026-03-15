@@ -3,6 +3,7 @@ import Sidebar from './components/Sidebar'
 import MobileHeader from './components/MobileHeader'
 import ChatInput from './components/ChatInput'
 import ChatBubbles from './components/ChatBubbles'
+import ThreadPanel from './components/ThreadPanel'
 
 import { onAuthStateChange, getCurrentUser, signInAnonymously } from './services/supabase'
 
@@ -78,6 +79,12 @@ export default class App extends Component {
     this.mobileHeader = new MobileHeader()
     this.chatBubbles = new ChatBubbles()
     this.chatInput = new ChatInput()
+    this.threadPanel = new ThreadPanel()
+    this.sidebarOverlay = document.createElement('div')
+    this.sidebarOverlay.className = 'sidebar-overlay'
+    this.sidebarOverlay.addEventListener('click', () => {
+      this.sidebar?.closeMobile()
+    })
 
     const routerView = document.createElement('router-view')
 
@@ -108,6 +115,7 @@ export default class App extends Component {
       sidebar: this.sidebar,
       chatBubbles: this.chatBubbles,
       chatInput: this.chatInput,
+      threadPanel: this.threadPanel,
       user: this.user,
       currentSessionId: this.currentSessionId,
       updateUser: (user) => {
@@ -118,23 +126,58 @@ export default class App extends Component {
         this.currentSessionId = sessionId
         window.app.currentSessionId = sessionId
       },
-      updateMainContentClass: this.updateMainContentClass
+      updateMainContentClass: this.updateMainContentClass,
+      sidebarOverlay: this.sidebarOverlay,
+      showBubblePreview: (type) => {
+        if (this.chatBubbles && typeof this.chatBubbles.setPreviewMode === 'function') {
+          this.chatBubbles.setPreviewMode(type)
+        }
+      }
     }
+
+    if (typeof this.sidebar.syncOverlayState === 'function') {
+      this.sidebar.syncOverlayState()
+    }
+
+    const contentScroll = document.createElement('div')
+    contentScroll.className = 'content-scroll'
+
+    const chatLayout = document.createElement('div')
+    chatLayout.className = 'chat-layout'
+    chatLayout.append(this.chatBubbles.el)
+
+    contentScroll.append(routerView, chatLayout)
 
     // 메인 컨텐츠에 라우터와 채팅 관련 컴포넌트 추가
     mainContent.append(
-      routerView,
-      this.chatBubbles.el,
-      this.chatInput.el
+      contentScroll,
+      this.chatInput.el,
+      this.threadPanel.el
     )
 
     this.el.append(
       this.mobileHeader.el,
       this.sidebar.el,
+      this.sidebarOverlay,
       mainContent
     )
 
     // 초기 상태 설정
     this.updateMainContentClass()
+    this.applyBubblePreviewFromQuery()
+  }
+
+  applyBubblePreviewFromQuery() {
+    try {
+      const search = window.location.search || ''
+      if (!search) return
+      const params = new URLSearchParams(search)
+      const previewType = params.get('previewBubble')
+      if (previewType && this.chatBubbles && typeof this.chatBubbles.setPreviewMode === 'function') {
+        this.chatBubbles.setPreviewMode(previewType)
+      }
+    } catch (error) {
+      console.warn('채팅 버블 프리뷰 파라미터 처리 중 오류:', error)
+    }
   }
 }

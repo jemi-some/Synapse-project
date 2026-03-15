@@ -311,10 +311,7 @@ async function performSessionAnalysis(sessionId, messages) {
       last_message_at: new Date().toISOString()
     })
 
-    await addMessage(sessionId, analysisResult, 'text', 'system', {
-      analysis: true,
-      summary
-    })
+    await addMessage(sessionId, analysisResult, 'text', 'system')
 
     if (mediaFileId) {
       const existing = (existingAIAnalysis && typeof existingAIAnalysis === 'object') ? existingAIAnalysis : {}
