@@ -91,6 +91,78 @@ export default class ChatBubbles extends Component {
       ]
     }
 
+    if (type === 'memo_search') {
+      return [
+        {
+          type: 'ai',
+          content: '우울했던 날에 대한 기록 3건을 찾았어요.',
+          id: 'preview-memo-search-intro'
+        },
+        {
+          type: 'action',
+          id: 'preview-memo-search-action',
+          actionData: {
+            action: 'search_memos',
+            results: [
+              {
+                capture_time: '2024-03-01T14:30:00Z',
+                context: '오늘 기분이 우울했다'
+              },
+              {
+                capture_time: '2024-02-15T09:00:00Z',
+                context: '프로젝트 스트레스로 힘든 하루였다'
+              },
+              {
+                capture_time: '2024-01-20T18:00:00Z',
+                context: '비 오는 날, 마음도 축축하다'
+              }
+            ]
+          }
+        }
+      ]
+    }
+
+    if (type === 'mixed_search') {
+      return [
+        {
+          type: 'ai',
+          content: '2건의 기록을 찾았어요',
+          id: 'preview-mixed-intro'
+        },
+        {
+          type: 'action',
+          id: 'preview-mixed-photos',
+          actionData: {
+            action: 'search_photos',
+            results: [
+              {
+                image_url: 'https://images.unsplash.com/photo-1470770903676-69b98201ea1c?auto=format&fit=crop&w=400&q=60',
+                capture_time: '2024-03-09T12:00:00Z',
+                description: '우중충한 하늘 사진'
+              }
+            ]
+          }
+        },
+        {
+          type: 'action',
+          id: 'preview-mixed-memos',
+          actionData: {
+            action: 'search_memos',
+            results: [
+              {
+                capture_time: '2024-03-01T14:30:00Z',
+                context: '오늘 기분이 우울했다'
+              },
+              {
+                capture_time: '2024-02-15T09:00:00Z',
+                context: '프로젝트 스트레스로 힘든 하루였다'
+              }
+            ]
+          }
+        }
+      ]
+    }
+
     return null
   }
 
@@ -637,10 +709,13 @@ export default class ChatBubbles extends Component {
   // 스크롤을 맨 아래로
   scrollToBottom() {
     setTimeout(() => {
-      // .content-scroll이 실제 스크롤 영역이므로 이를 찾아서 스크롤
-      const contentScroll = document.querySelector('.content-scroll')
-      if (contentScroll) {
-        contentScroll.scrollTop = contentScroll.scrollHeight
+      // .app-main이 실제 스크롤 영역이므로 이를 찾아서 스크롤
+      const appMain = document.querySelector('.app-main')
+      if (appMain) {
+        appMain.scrollTo({
+          top: appMain.scrollHeight,
+          behavior: 'smooth'
+        })
       }
     }, 50)
   }
@@ -648,8 +723,8 @@ export default class ChatBubbles extends Component {
   // 현재 맨 아래에 있을 때만 스크롤 (사용자가 위로 스크롤했다면 방해하지 않음)
   scrollToBottomIfAtBottom() {
     setTimeout(() => {
-      // .content-scroll이 실제 스크롤 영역
-      const element = document.querySelector('.content-scroll')
+      // .app-main이 실제 스크롤 영역
+      const element = document.querySelector('.app-main')
       if (!element) return
 
       const scrollTop = element.scrollTop
@@ -665,7 +740,10 @@ export default class ChatBubbles extends Component {
 
       // 사용자가 맨 아래 근처에 있을 때만 스크롤 (50px 여유)
       if (scrollTop + clientHeight >= scrollHeight - 50) {
-        element.scrollTop = scrollHeight
+        element.scrollTo({
+          top: scrollHeight,
+          behavior: 'smooth'
+        })
 
         // 안드로이드에서 textarea가 포커스를 잃었다면 복구
         if (/Android/i.test(navigator.userAgent) && isTextareaFocused) {

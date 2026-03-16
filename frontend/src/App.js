@@ -115,6 +115,7 @@ export default class App extends Component {
     // 전역 참조 (최소화)
     window.app = {
       sidebar: this.sidebar,
+      sidebarOverlay: this.sidebarOverlay,
       chatBubbles: this.chatBubbles,
       chatInput: this.chatInput,
       user: this.user,
@@ -128,6 +129,10 @@ export default class App extends Component {
       updateCurrentSessionId: (sessionId) => {
         this.currentSessionId = sessionId
         window.app.currentSessionId = sessionId
+      },
+      // 프리뷰 헬퍼 함수
+      preview: (type) => {
+        this.chatBubbles.setPreviewMode(type)
       }
     }
 

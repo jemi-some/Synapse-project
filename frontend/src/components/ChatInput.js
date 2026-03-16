@@ -585,6 +585,7 @@ export default class ChatInput extends Component {
     if (!textarea) return
     if (textarea.value.trim() === '') {
       textarea.style.removeProperty('height')
+      textarea.style.overflowY = 'hidden'
       return
     }
 
@@ -592,7 +593,7 @@ export default class ChatInput extends Component {
     textarea.style.height = 'auto'
     const maxHeight = 120
     const scrollHeight = textarea.scrollHeight
-    const totalPadding = 32
+    const totalPadding = 12 // padding top + bottom (6px * 2)
     const contentHeight = scrollHeight - totalPadding
     const lineHeight = 24
     const lineCount = Math.ceil(contentHeight / lineHeight)
@@ -601,8 +602,10 @@ export default class ChatInput extends Component {
     // 높이 조정 (최대 높이 제한)
     if (finalHeight <= (maxHeight - totalPadding)) {
       textarea.style.height = finalHeight + 'px'
+      textarea.style.overflowY = 'hidden'
     } else {
       textarea.style.height = maxHeight + 'px'
+      textarea.style.overflowY = 'auto'
     }
   }
 

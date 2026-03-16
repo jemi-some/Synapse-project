@@ -93,7 +93,8 @@
 .chat-section {
   flex-shrink: 0;
   width: 100%;
-  padding: var(--spacing-lg) var(--spacing-xl) var(--spacing-xl);
+  padding: var(--spacing-lg) var(--spacing-xl);
+  padding-bottom: calc(var(--footer-height) + var(--spacing-xl));
 }
 
 /* ==================== FOOTER (Fixed Input) ==================== */
