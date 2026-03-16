@@ -1,8 +1,9 @@
 import { Component } from './core'
-import MobileHeader from './components/MobileHeader'
 import Sidebar from './components/Sidebar'
-import ChatBubbles from './components/ChatBubbles'
+import MobileHeader from './components/MobileHeader'
 import ChatInput from './components/ChatInput'
+import ChatBubbles from './components/ChatBubbles'
+import ThreadPanel from './components/ThreadPanel'
 
 import { onAuthStateChange, getCurrentUser, signInAnonymously } from './services/supabase'
 
@@ -10,13 +11,13 @@ export default class App extends Component {
   constructor() {
     super()
     this.user = null
-    this.currentSessionId = null
+    this.currentSessionId = null // 현재 채팅 세션 ID 추적
     this.initAuth()
-    console.log('[App] Initialized with new layout')
+    console.log('[Supabase] App initialized with auth')
   }
 
   // ============================================================
-  // 인증 (기존 코드 유지)
+  // Supabase 인증 관련 코드
   // ============================================================
   async initAuth() {
     const { user, error } = await getCurrentUser()
@@ -72,55 +73,51 @@ export default class App extends Component {
     }
   }
 
-  // ============================================================
-  // 스크롤 제어 (새로운 방식!)
-  // ============================================================
-  scrollToBottom(behavior = 'smooth') {
-    setTimeout(() => {
-      const main = this.el.querySelector('.app-main')
-      if (main) {
-        main.scrollTo({
-          top: main.scrollHeight,
-          behavior: behavior
-        })
-      }
-    }, 100)
-  }
-
-  isUserScrolledUp() {
-    const main = this.el.querySelector('.app-main')
-    if (!main) return false
-
-    const threshold = 100 // 100px 여유
-    return main.scrollTop + main.clientHeight < main.scrollHeight - threshold
-  }
-
-  // ============================================================
-  // 렌더링 (새로운 구조!)
-  // ============================================================
   render() {
-    // 컴포넌트 인스턴스 생성
-    this.header = new MobileHeader()
+    // Sidebar, ChatBubbles와 ChatInput 인스턴스 생성 및 전역 참조 저장
     this.sidebar = new Sidebar()
+    this.mobileHeader = new MobileHeader()
     this.chatBubbles = new ChatBubbles()
     this.chatInput = new ChatInput()
-
-    // 오버레이 생성
+    this.threadPanel = new ThreadPanel()
     this.sidebarOverlay = document.createElement('div')
     this.sidebarOverlay.className = 'sidebar-overlay'
     this.sidebarOverlay.addEventListener('click', () => {
       this.sidebar?.closeMobile()
     })
 
-    // 전역 참조 (최소화)
+    const routerView = document.createElement('router-view')
+
+    // 메인 컨텐츠 래퍼 생성
+    const mainContent = document.createElement('div')
+    mainContent.className = 'main-content'
+
+    // 사이드바 상태 동기화 함수
+    this.updateMainContentClass = () => {
+      if (this.sidebar?.state?.isExpanded) {
+        mainContent.classList.add('sidebar-expanded')
+      } else {
+        mainContent.classList.remove('sidebar-expanded')
+      }
+    }
+
+    // 사이드바 상태 변화 감지를 위한 옵저버 설정
+    if (this.sidebar) {
+      const originalSidebarRender = this.sidebar.render.bind(this.sidebar)
+      this.sidebar.render = (...args) => {
+        const result = originalSidebarRender(...args)
+        setTimeout(() => this.updateMainContentClass(), 0)
+        return result
+      }
+    }
+
     window.app = {
       sidebar: this.sidebar,
       chatBubbles: this.chatBubbles,
       chatInput: this.chatInput,
+      threadPanel: this.threadPanel,
       user: this.user,
       currentSessionId: this.currentSessionId,
-      scrollToBottom: (behavior) => this.scrollToBottom(behavior),
-      isUserScrolledUp: () => this.isUserScrolledUp(),
       updateUser: (user) => {
         this.user = user
         this.onAuthStateChanged(user)
@@ -128,38 +125,59 @@ export default class App extends Component {
       updateCurrentSessionId: (sessionId) => {
         this.currentSessionId = sessionId
         window.app.currentSessionId = sessionId
+      },
+      updateMainContentClass: this.updateMainContentClass,
+      sidebarOverlay: this.sidebarOverlay,
+      showBubblePreview: (type) => {
+        if (this.chatBubbles && typeof this.chatBubbles.setPreviewMode === 'function') {
+          this.chatBubbles.setPreviewMode(type)
+        }
       }
     }
 
-    // ===== DOM 구조 =====
-    this.el.innerHTML = `
-      <div class="app-header-placeholder"></div>
-      <div class="app-sidebar-placeholder"></div>
-      <div class="sidebar-overlay-placeholder"></div>
-      <main class="app-main">
-        <section class="chat-section"></section>
-      </main>
-      <div class="app-footer-placeholder"></div>
-    `
-
-    // 컴포넌트 마운트
-    this.el.querySelector('.app-header-placeholder').replaceWith(this.header.el)
-    this.header.el.className = 'app-header'
-
-    this.el.querySelector('.app-sidebar-placeholder').replaceWith(this.sidebar.el)
-    this.sidebar.el.className = 'app-sidebar'
-
-    this.el.querySelector('.sidebar-overlay-placeholder').replaceWith(this.sidebarOverlay)
-
-    const chatSection = this.el.querySelector('.chat-section')
-    chatSection.append(this.chatBubbles.el)
-
-    this.el.querySelector('.app-footer-placeholder').replaceWith(this.chatInput.el)
-    this.chatInput.el.className = 'app-footer'
-
-    // 사이드바 오버레이 동기화
     if (typeof this.sidebar.syncOverlayState === 'function') {
       this.sidebar.syncOverlayState()
+    }
+
+    const contentScroll = document.createElement('div')
+    contentScroll.className = 'content-scroll'
+
+    const chatLayout = document.createElement('div')
+    chatLayout.className = 'chat-layout'
+    chatLayout.append(this.chatBubbles.el)
+
+    contentScroll.append(routerView, chatLayout)
+
+    // 메인 컨텐츠에 라우터와 채팅 관련 컴포넌트 추가
+    mainContent.append(
+      contentScroll,
+      this.chatInput.el,
+      this.threadPanel.el
+    )
+
+    this.el.append(
+      this.mobileHeader.el,
+      this.sidebar.el,
+      this.sidebarOverlay,
+      mainContent
+    )
+
+    // 초기 상태 설정
+    this.updateMainContentClass()
+    this.applyBubblePreviewFromQuery()
+  }
+
+  applyBubblePreviewFromQuery() {
+    try {
+      const search = window.location.search || ''
+      if (!search) return
+      const params = new URLSearchParams(search)
+      const previewType = params.get('previewBubble')
+      if (previewType && this.chatBubbles && typeof this.chatBubbles.setPreviewMode === 'function') {
+        this.chatBubbles.setPreviewMode(previewType)
+      }
+    } catch (error) {
+      console.warn('채팅 버블 프리뷰 파라미터 처리 중 오류:', error)
     }
   }
 }
