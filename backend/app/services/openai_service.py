@@ -274,7 +274,7 @@ async def _execute_search_memories(query: str, user_id: str) -> dict:
     search_memories 도구 실행기.
     LLM이 "search_memories를 호출하겠다"고 결정하면 이 함수가 실행됩니다.
 
-    흐름: 검색어 → 임베딩 → Supabase 유사도 검색 → 결과 반환
+    흐름: 검색어 → 임베딩 → Supabase 유사도 검색 → 사진/메모 분류 → 결과 반환
     """
     from app.services.supabase_service import search_memories
 
@@ -287,12 +287,33 @@ async def _execute_search_memories(query: str, user_id: str) -> dict:
         user_id=user_id,
     )
 
-    return {
-        "action": "search",
-        "query": query,
-        "results": results,
-        "count": len(results),
-    }
+    # 사진과 메모 분류
+    photos = [r for r in results if r.get("file_url")]
+    memos = [r for r in results if not r.get("file_url")]
+
+    # 우선순위: 사진 > 메모 (프론트엔드는 한 번에 하나의 action만 처리)
+    if photos:
+        return {
+            "action": "search_photos",
+            "query": query,
+            "results": photos,
+            "count": len(photos),
+        }
+    elif memos:
+        return {
+            "action": "search_memos",
+            "query": query,
+            "results": memos,
+            "count": len(memos),
+        }
+    else:
+        # 결과 없음
+        return {
+            "action": "search_photos",
+            "query": query,
+            "results": [],
+            "count": 0,
+        }
 
 
 async def _execute_save_memo(
