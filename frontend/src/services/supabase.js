@@ -161,16 +161,23 @@ export const getMessages = async (sessionId) => {
  * @param {Object} [metadata={}] - 메시지에 추가될 메타데이터 JSON
  * @returns {Promise<{data: Object|null, error: Object|null}>} 기록된 메시지 객체 반환
  */
-export const addMessage = async (sessionId, content, messageType = 'text', role = 'user') => {
+export const addMessage = async (sessionId, content, messageType = 'text', role = 'user', actionData = null) => {
   try {
+    const messageRow = {
+      chat_session_id: sessionId,
+      content: content,
+      message_type: messageType,
+      role: role
+    }
+
+    // action_data가 있으면 추가 (검색 결과 등)
+    if (actionData) {
+      messageRow.action_data = actionData
+    }
+
     const { data, error } = await supabase
       .from('chat_messages')
-      .insert([{
-        chat_session_id: sessionId,
-        content: content,
-        message_type: messageType,
-        role: role
-      }])
+      .insert([messageRow])
       .select()
       .single()
     return { data, error }
