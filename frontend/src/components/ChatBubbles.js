@@ -643,18 +643,42 @@ export default class ChatBubbles extends Component {
 
     const cardsHtml = results.map(photo => {
       const url = photo.image_url || photo.file_url || photo.url
-      const desc = photo.description || '사진'
+
+      // 날짜 추출: metadata.dateTime.original > capture_time > created_at
       let dateText = ''
-      if (photo.capture_time) {
-        dateText = new Date(photo.capture_time).toLocaleDateString()
+      if (photo.metadata?.dateTime?.original) {
+        dateText = new Date(photo.metadata.dateTime.original).toLocaleDateString('ko-KR', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        })
+      } else if (photo.capture_time) {
+        dateText = new Date(photo.capture_time).toLocaleDateString('ko-KR', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        })
       } else if (photo.created_at) {
-        dateText = new Date(photo.created_at).toLocaleDateString()
+        dateText = new Date(photo.created_at).toLocaleDateString('ko-KR', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        })
       }
+
+      // 위치 정보 추출
+      const locationText = photo.metadata?.gps?.shortAddress || ''
+
+      // desc에 날짜와 위치 표시
+      const descParts = []
+      if (dateText) descParts.push(dateText)
+      if (locationText) descParts.push(locationText)
+      const desc = descParts.length > 0 ? descParts.join(' · ') : '사진'
+
       return `
         <div class="photo-card action-card">
           <img src="${url}" alt="검색된 사진" class="photo-card-img" />
-          ${dateText ? `<div class="photo-card-date">${this.escapeHtml(dateText)}</div>` : ''}
-          ${desc ? `<div class="photo-card-desc">${this.escapeHtml(desc)}</div>` : ''}
+          <div class="photo-card-desc">${this.escapeHtml(desc)}</div>
         </div>
       `
     }).join('')
