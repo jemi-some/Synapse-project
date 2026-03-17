@@ -20,11 +20,9 @@ export default class Sidebar extends Component {
 
     this.el.className = 'sidebar'
     this.handleClose = this.handleClose.bind(this)
-    this.handleOverlayClick = this.handleOverlayClick.bind(this)
     this.toggleExpanded = this.toggleExpanded.bind(this)
     this.toggleMobile = this.toggleMobile.bind(this)
     this.closeMobile = this.closeMobile.bind(this)
-    this.handleOutsideClick = this.handleOutsideClick.bind(this)
 
     // 인증 상태 구독
     authStore.subscribe('user', (user) => {
@@ -66,25 +64,13 @@ export default class Sidebar extends Component {
   }
 
   toggleChatInputVisibility() {
-    const chatInput = window.app?.chatInput
-    const chatBubbles = window.app?.chatBubbles
+    const root = document.getElementById('root')
+    if (!root) return
 
     if (this.state.currentPath === '#/library') {
-      // 라이브러리 화면에서는 채팅 관련 요소들 숨기기
-      if (chatInput) {
-        chatInput.el.style.display = 'none'
-      }
-      if (chatBubbles) {
-        chatBubbles.el.style.display = 'none'
-      }
+      root.classList.add('route-library')
     } else {
-      // 다른 화면에서는 채팅 관련 요소들 표시
-      if (chatInput) {
-        chatInput.el.style.display = ''
-      }
-      if (chatBubbles) {
-        chatBubbles.el.style.display = ''
-      }
+      root.classList.remove('route-library')
     }
   }
 
@@ -133,13 +119,13 @@ export default class Sidebar extends Component {
             <div class="nav-section">
               <ul>
                 <li>
-                  <a href="#new-chat" class="nav-item new-chat-button">
-                    <span class="nav-icon material-symbols-outlined">edit_square</span>
-                    ${(isExpanded || isMobileOpen) ? '<span class="nav-text">새 채팅</span>' : ''}
+                  <a href="#/" class="nav-item ${currentPath === '#/' ? 'active' : ''}">
+                    <span class="nav-icon material-symbols-outlined">chat</span>
+                    ${(isExpanded || isMobileOpen) ? '<span class="nav-text">메인</span>' : ''}
                   </a>
                 </li>
                 <li>
-                  <a href="#library" class="nav-item library-button ${currentPath === '#/library' ? 'active' : ''}">
+                  <a href="#/library" class="nav-item library-button ${currentPath === '#/library' ? 'active' : ''}">
                     <span class="nav-icon material-symbols-outlined">photo_library</span>
                     ${(isExpanded || isMobileOpen) ? '<span class="nav-text">앨범</span>' : ''}
                   </a>
@@ -303,6 +289,8 @@ export default class Sidebar extends Component {
         this.handleLogout()
       })
     }
+
+    this.syncOverlayState()
   }
 
   toggleExpanded() {
@@ -315,26 +303,15 @@ export default class Sidebar extends Component {
   toggleMobile() {
     console.log('toggleMobile 호출됨, 현재 상태:', this.state.isMobileOpen)
     this.state.isMobileOpen = !this.state.isMobileOpen
-
-    if (this.state.isMobileOpen) {
-      // 모바일에서 사이드바가 열릴 때 외부 클릭 이벤트 리스너 추가
-      setTimeout(() => {
-        document.addEventListener('click', this.handleOutsideClick)
-      }, 100)
-    } else {
-      // 사이드바가 닫힐 때 외부 클릭 이벤트 리스너 제거
-      document.removeEventListener('click', this.handleOutsideClick)
-    }
-
     this.render()
+    this.syncOverlayState()
   }
 
   closeMobile() {
     if (this.state.isMobileOpen) {
       this.state.isMobileOpen = false
-      // 외부 클릭 이벤트 리스너 제거
-      document.removeEventListener('click', this.handleOutsideClick)
       this.render()
+      this.syncOverlayState()
     }
   }
 
@@ -352,58 +329,11 @@ export default class Sidebar extends Component {
     this.hide()
   }
 
-  handleOverlayClick(e) {
-    // 오버레이 제거됨
-  }
-
-  handleOutsideClick(e) {
-    // 모바일에서 사이드바가 열려있을 때만 처리
-    if (!this.state.isMobileOpen || window.innerWidth > 768) {
-      return
-    }
-
-    // 클릭된 요소가 사이드바 내부나 모바일 헤더 내부인지 확인
-    const sidebar = this.el
-    const mobileHeader = document.querySelector('.mobile-header')
-
-    if (sidebar && !sidebar.contains(e.target) &&
-      mobileHeader && !mobileHeader.contains(e.target)) {
-      // 사이드바와 모바일 헤더 외부를 클릭한 경우 사이드바 닫기
-      this.closeMobile()
-    }
-  }
-
   handleNavigation(href, element = null) {
     console.log('Navigate to:', href)
 
-    // 새 채팅 버튼 클릭
-    if (href === '#new-chat') {
-      // ChatBubbles 완전 초기화
-      const chatBubbles = window.app?.chatBubbles
-      if (chatBubbles) {
-        chatBubbles.resetToInitialState()
-      }
-
-      // 홈으로 이동
-      window.location.hash = '#/'
-
-      // 현재 이미지 초기화하고 새 채팅 시작
-      imageStore.clearCurrentImage()
-
-      // ChatInput 완전 초기화
-      const chatInput = window.app?.chatInput
-      if (chatInput) {
-        chatInput.resetToInitialState()
-      }
-
-      return
-    }
-
-    // 라이브러리 버튼 클릭
-    if (href === '#library') {
-      console.log('라이브러리 페이지로 이동')
-      // 라이브러리 라우트로 이동
-      window.location.hash = '#/library'
+    if (href === '#/' || href === '#/library') {
+      window.location.hash = href
       return
     }
 
@@ -413,7 +343,21 @@ export default class Sidebar extends Component {
       if (sessionId) {
         // 새 라우트로 이동
         window.location.hash = `#/chat/${sessionId}`
+        this.closeMobile()
       }
+    }
+  }
+
+  syncOverlayState() {
+    const overlay = window.app?.sidebarOverlay
+    if (!overlay) return
+
+    if (this.state.isMobileOpen) {
+      overlay.classList.add('active')
+      document.body.classList.add('sidebar-open')
+    } else {
+      overlay.classList.remove('active')
+      document.body.classList.remove('sidebar-open')
     }
   }
 

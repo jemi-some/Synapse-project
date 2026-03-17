@@ -161,7 +161,7 @@ export const getMessages = async (sessionId) => {
  * @param {Object} [metadata={}] - 메시지에 추가될 메타데이터 JSON
  * @returns {Promise<{data: Object|null, error: Object|null}>} 기록된 메시지 객체 반환
  */
-export const addMessage = async (sessionId, content, messageType = 'text', senderType = 'user', metadata = {}) => {
+export const addMessage = async (sessionId, content, messageType = 'text', role = 'user') => {
   try {
     const { data, error } = await supabase
       .from('chat_messages')
@@ -169,8 +169,7 @@ export const addMessage = async (sessionId, content, messageType = 'text', sende
         chat_session_id: sessionId,
         content: content,
         message_type: messageType,
-        sender_type: senderType,
-        metadata: metadata
+        role: role
       }])
       .select()
       .single()
@@ -218,62 +217,42 @@ export const uploadFile = async (file, bucket = 'media', path = null) => {
 }
 
 /**
- * Storage 업로드 결과에 따른 메타데이터를 `media_files` 테이블에 저장합니다.
- * @param {Object} fileData - 버킷, 이름, 작성자 등 파일의 기본 정보와 참조 키
- * @returns {Promise<{data: Object|null, error: Object|null}>} 기록된 레코드 반환
+ * 업로드된 이미지와 메타데이터를 `memories` 테이블에 저장합니다.
+ * 백엔드의 vectorize API 호출 전에 DB에 레코드를 생성하기 위해 사용됩니다.
+ * @param {Object} memoryData - url, 사이즈, 추출된 메타데이터 등
+ * @returns {Promise<{data: Object|null, error: Object|null}>} 생성된 memory 레코드 반환
  */
-export const saveMediaFile = async (fileData) => {
+export const saveMemory = async (memoryData) => {
   try {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('User not authenticated')
-    const { data, error } = await supabase
-      .from('media_files')
-      .insert([{ ...fileData, user_id: user.id }])
-      .select()
-      .single()
-    return { data, error }
-  } catch (error) {
-    return { data: null, error }
-  }
-}
 
-/**
- * 이미지의 구체적인 메타 정보(EXIF 등)를 DB에 통합하여 저장합니다.
- * @param {Object} imageData - url, 사이즈 뿐 아니라 파싱된 세부 메타데이터가 담긴 객체
- * @returns {Promise<{data: Object|null, error: Object|null}>} 기록된 레코드 반환
- */
-export const saveImageMetadata = async (imageData) => {
-  try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('User not authenticated')
     const { data, error } = await supabase
-      .from('media_files')
+      .from('memories')
       .insert([{
         user_id: user.id,
-        file_url: imageData.image_url,
-        file_name: imageData.file_name,
-        file_size: imageData.file_size,
-        mime_type: imageData.mime_type,
-        file_type: 'image',
-        metadata: {
-          chat_session_id: imageData.chat_session_id,
-          ...imageData.selected_metadata
-        },
-        chat_session_id: imageData.chat_session_id
+        file_url: memoryData.image_url || memoryData.file_url,
+        file_name: memoryData.file_name,
+        file_size: memoryData.file_size,
+        mime_type: memoryData.mime_type,
+        metadata: memoryData.selected_metadata || {},
+        chat_session_id: memoryData.chat_session_id
       }])
       .select()
       .single()
+
     return { data, error }
   } catch (error) {
     return { data: null, error }
   }
 }
 
+
 /**
- * 사진 업로드 후, 사진 메타데이터(시간, 장소, 기기)를 바탕으로 제목을 임의 생성한 새 채팅 세션을 열고, 이미지 정보를 연동시켜 저장합니다.
+ * 사진 업로드 후, 메타데이터를 바탕으로 제목을 임의 생성한 새 채팅 세션을 열고, memory를 생성합니다.
  * @param {Object} imageMetadata - 수집된 사진 메타 정보
- * @param {string|null} [title=null] - 사용자가 지정하고 싶은 대화 제목 (없을 시 자동 유추)
- * @returns {Promise<{sessionData: Object|null, metadataData: Object|null, error: Object|null}>} 채팅 및 미디어 정보 동시 반환
+ * @param {string|null} [title=null] - 지정하고 싶은 대화 제목 (없을 시 모바일/날짜 기준 자동 유추)
+ * @returns {Promise<{sessionData: Object|null, memoryData: Object|null, error: Object|null}>} 세션 및 생성된 memory 동시 반환
  */
 export const createChatSessionWithImage = async (imageMetadata, title = null) => {
   try {
@@ -281,31 +260,36 @@ export const createChatSessionWithImage = async (imageMetadata, title = null) =>
     if (!user) throw new Error('User not authenticated')
     let sessionTitle = title
     if (!sessionTitle) {
-      if (imageMetadata.camera?.make && imageMetadata.camera?.model) {
-        sessionTitle = `${imageMetadata.camera.make} ${imageMetadata.camera.model}로 찍은 사진`
-      } else if (imageMetadata.dateTime?.original) {
-        const date = new Date(imageMetadata.dateTime.original)
+      if (imageMetadata.selected_metadata?.camera?.make && imageMetadata.selected_metadata?.camera?.model) {
+        sessionTitle = `${imageMetadata.selected_metadata.camera.make} ${imageMetadata.selected_metadata.camera.model} 사진`
+      } else if (imageMetadata.selected_metadata?.dateTime?.original) {
+        const date = new Date(imageMetadata.selected_metadata.dateTime.original)
         sessionTitle = `${date.toLocaleDateString('ko-KR')} 사진`
       } else {
         sessionTitle = '새로운 사진 대화'
       }
     }
+
+    // 1. 세션 생성
     const { data: sessionData, error: sessionError } = await supabase
       .from('chat_sessions')
       .insert([{ user_id: user.id, title: sessionTitle }])
       .select()
       .single()
     if (sessionError) throw sessionError
-    const { data: metadataData, error: metadataError } = await saveImageMetadata({
+
+    // 2. Memory 생성
+    const { data: memoryData, error: memoryError } = await saveMemory({
       ...imageMetadata,
       chat_session_id: sessionData.id
     })
-    if (metadataError) {
-      console.error('이미지 메타데이터 저장 실패:', metadataError)
+
+    if (memoryError) {
+      console.error('Memory 생성 실패:', memoryError)
     }
-    return { sessionData, metadataData, error: null }
+    return { sessionData, memoryData, error: null }
   } catch (error) {
-    return { sessionData: null, metadataData: null, error }
+    return { sessionData: null, memoryData: null, error }
   }
 }
 

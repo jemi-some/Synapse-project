@@ -1,104 +1,127 @@
 // ============================================================
-// OpenAI 서비스 — FastAPI 백엔드 API 호출
-// 기존 Supabase Edge Function 대신 백엔드 API를 사용합니다.
+// OpenAI 서비스 — FastAPI 백엔드 API 연동
 // ============================================================
+
+import { retryWithBackoff, isRetryableError } from '../utils/errorHandler'
 
 // 백엔드 API URL (개발 환경)
 const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8000'
 
 /**
- * 공통 API 호출 함수
+ * 공통 API 호출 함수 (재시도 로직 포함)
  */
-async function callApi(endpoint, body) {
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
+async function callApi(endpoint, body, options = {}) {
+  const {
+    timeout = 60000, // 기본 60초 타임아웃
+    retryOptions = {
+      maxRetries: 3,
+      initialDelay: 1000,
+      shouldRetry: isRetryableError,
+    },
+  } = options
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ detail: response.statusText }))
-    throw new Error(errorData.detail || `API 오류 (${response.status})`)
-  }
+  return retryWithBackoff(async () => {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), timeout)
 
-  return response.json()
+    try {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      })
+
+      clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: response.statusText }))
+        throw new Error(errorData.detail || `API 오류 (${response.status})`)
+      }
+
+      return response.json()
+    } catch (error) {
+      clearTimeout(timeoutId)
+
+      // AbortController로 인한 에러를 타임아웃 에러로 변환
+      if (error.name === 'AbortError') {
+        throw new Error('요청 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.')
+      }
+
+      throw error
+    }
+  }, retryOptions)
 }
 
 /**
- * 이미지 분석 (description)
+ * Step 1: 사진 분석 및 벡터화 (Phase 1-A)
+ * @param {string} imageUrl - 업로드된 이미지 URL
+ * @param {string} memoryId - 저장된 memory의 UUID
+ * @param {Object} metadata - 위치, 촬영 시간 등 메타데이터
+ * @param {string} [userText] - (선택) 사진과 함께 남긴 사용자 코멘트
  */
-export const analyzeImage = async (imageUrl, prompt = "이 이미지에 대해 자세히 설명해주세요.") => {
+export const vectorize = async (imageUrl, memoryId, metadata, userText = null) => {
   try {
-    const data = await callApi('/api/ai/analyze-image', {
+    const data = await callApi('/api/ai/vectorize', {
       imageUrl,
-      analysisType: 'description',
+      memoryId,
+      metadata,
+      userText,
     })
-    if (!data.success) throw new Error(data.error || '알 수 없는 오류')
-    return data.result
+    // 백엔드는 { success, visionTags, contextSummary, embeddingDimensions } 형태로 반환
+    if (!data.success) throw new Error(data.error || '벡터화 실패')
+    return data
   } catch (error) {
-    console.error('이미지 분석 에러:', error)
+    console.error('벡터화 파이프라인 에러:', error)
     throw new Error(`이미지 분석에 실패했습니다: ${error.message}`)
   }
 }
 
 /**
- * 채팅 응답 생성
+ * Step 2: 메인 피드 채팅 메시지 라우팅 (Phase 1-B)
+ * @param {string} message - 사용자 입력
+ * @param {string} userId - 사용자 UUID
+ * @param {string} sessionId - 현재 채팅 세션 ID (메인 피드용)
  */
-export const generateChatResponse = async (message, conversationHistory = [], photoContext = null) => {
+export const sendMessage = async (message, userId, sessionId) => {
   try {
-    const data = await callApi('/api/ai/chat', {
+    const data = await callApi('/api/ai/message', {
       message,
-      conversationHistory,
-      photoContext,
+      userId,
+      sessionId,
     })
-    if (!data.success) throw new Error(data.error)
-    return data.response
+    // 백엔드는 { response, actions } 형태로 반환
+    return { success: true, ...data }
   } catch (error) {
-    console.error('AI 응답 생성 에러:', error)
+    console.error('채팅 응답 생성 에러:', error)
     throw new Error('AI 응답 생성에 실패했습니다.')
   }
 }
 
 /**
- * 감정 분석
+ * Step 3: 스레드 내부 다이얼로그 (Thread endpoint)
+ * @param {string} message - 사용자 입력
+ * @param {string} parentMessageId - 스레드가 시작된 부모 검색 결과 메시지의 UUID
+ * @param {string} sessionId - 현재 채팅 세션 ID
  */
-export const analyzeImageEmotion = async (imageUrl) => {
+export const sendThreadMessage = async (message, parentMessageId, sessionId) => {
   try {
-    const data = await callApi('/api/ai/analyze-image', {
-      imageUrl,
-      analysisType: 'emotion',
+    // ThreadRequest schema에 맞춤
+    const data = await callApi('/api/ai/thread', {
+      message,
+      parentMessageId,
+      sessionId,
     })
-    if (!data.success) throw new Error(data.error)
-    return data.result
+    // 백엔드는 { response } 형태로 반환
+    return { success: true, ...data }
   } catch (error) {
-    console.error('감정 분석 에러:', error)
-    throw new Error('감정 분석에 실패했습니다.')
+    console.error('스레드 대화 에러:', error)
+    throw new Error('결과 대화 생성에 실패했습니다.')
   }
 }
-
-/**
- * 메타데이터 기반 이미지 분석
- */
-export const analyzeImageWithMetadata = async (imageUrl, metadata) => {
-  try {
-    const data = await callApi('/api/ai/analyze-image', {
-      imageUrl,
-      analysisType: 'context_analysis',
-      metadata,
-    })
-    if (!data.success) throw new Error(data.error || '알 수 없는 오류')
-    return data.result
-  } catch (error) {
-    console.error('메타데이터 기반 이미지 분석 에러:', error)
-    throw new Error(`메타데이터 기반 이미지 분석에 실패했습니다: ${error.message}`)
-  }
-}
-
-
 
 export default {
-  analyzeImage,
-  generateChatResponse,
-  analyzeImageEmotion,
-  analyzeImageWithMetadata,
+  vectorize,
+  sendMessage,
+  sendThreadMessage,
 }
