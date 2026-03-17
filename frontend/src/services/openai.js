@@ -2,25 +2,55 @@
 // OpenAI 서비스 — FastAPI 백엔드 API 연동
 // ============================================================
 
+import { retryWithBackoff, isRetryableError } from '../utils/errorHandler'
+
 // 백엔드 API URL (개발 환경)
 const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8000'
 
 /**
- * 공통 API 호출 함수
+ * 공통 API 호출 함수 (재시도 로직 포함)
  */
-async function callApi(endpoint, body) {
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
+async function callApi(endpoint, body, options = {}) {
+  const {
+    timeout = 60000, // 기본 60초 타임아웃
+    retryOptions = {
+      maxRetries: 3,
+      initialDelay: 1000,
+      shouldRetry: isRetryableError,
+    },
+  } = options
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ detail: response.statusText }))
-    throw new Error(errorData.detail || `API 오류 (${response.status})`)
-  }
+  return retryWithBackoff(async () => {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), timeout)
 
-  return response.json()
+    try {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      })
+
+      clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: response.statusText }))
+        throw new Error(errorData.detail || `API 오류 (${response.status})`)
+      }
+
+      return response.json()
+    } catch (error) {
+      clearTimeout(timeoutId)
+
+      // AbortController로 인한 에러를 타임아웃 에러로 변환
+      if (error.name === 'AbortError') {
+        throw new Error('요청 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.')
+      }
+
+      throw error
+    }
+  }, retryOptions)
 }
 
 /**

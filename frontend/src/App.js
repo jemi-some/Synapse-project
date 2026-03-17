@@ -3,6 +3,7 @@ import MobileHeader from './components/MobileHeader'
 import Sidebar from './components/Sidebar'
 import ChatBubbles from './components/ChatBubbles'
 import ChatInput from './components/ChatInput'
+import Toast from './components/Toast'
 
 import { onAuthStateChange, getCurrentUser, signInAnonymously } from './services/supabase'
 
@@ -104,6 +105,7 @@ export default class App extends Component {
     this.sidebar = new Sidebar()
     this.chatBubbles = new ChatBubbles()
     this.chatInput = new ChatInput()
+    this.toast = new Toast()
 
     // 오버레이 생성
     this.sidebarOverlay = document.createElement('div')
@@ -118,6 +120,7 @@ export default class App extends Component {
       sidebarOverlay: this.sidebarOverlay,
       chatBubbles: this.chatBubbles,
       chatInput: this.chatInput,
+      toast: this.toast,
       user: this.user,
       currentSessionId: this.currentSessionId,
       scrollToBottom: (behavior) => this.scrollToBottom(behavior),
@@ -145,6 +148,7 @@ export default class App extends Component {
         <section class="chat-section"></section>
       </main>
       <div class="app-footer-placeholder"></div>
+      <div class="app-toast-placeholder"></div>
     `
 
     // 컴포넌트 마운트
@@ -161,6 +165,8 @@ export default class App extends Component {
 
     this.el.querySelector('.app-footer-placeholder').replaceWith(this.chatInput.el)
     this.chatInput.el.className = 'app-footer'
+
+    this.el.querySelector('.app-toast-placeholder').replaceWith(this.toast.el)
 
     // 사이드바 오버레이 동기화
     if (typeof this.sidebar.syncOverlayState === 'function') {

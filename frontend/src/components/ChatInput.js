@@ -3,6 +3,7 @@ import { sendMessage, vectorize } from '../services/openai'
 import { addMessage, updateChatSession, getMessages, uploadFile, saveMemory, createChatSession, supabase } from '../services/supabase'
 import * as exifr from 'exifr'
 import imageCompression from 'browser-image-compression'
+import { getUserFriendlyError, isOnline } from '../utils/errorHandler'
 
 export default class ChatInput extends Component {
   constructor() {
@@ -65,14 +66,16 @@ export default class ChatInput extends Component {
     const file = e.target.files[0]
     if (!file) return
 
+    const toast = window.app?.toast
+
     if (!file.type.startsWith('image/')) {
-      alert('이미지 파일만 업로드할 수 있습니다.')
+      toast?.warning('이미지 파일만 업로드 가능', '이미지 파일(JPG, PNG 등)만 업로드할 수 있습니다.', 4000)
       return
     }
 
     // 파일 크기 체크 (예: 10MB)
     if (file.size > 10 * 1024 * 1024) {
-      alert('파일 크기는 10MB를 초과할 수 없습니다.')
+      toast?.warning('파일 크기 초과', '파일 크기는 10MB를 초과할 수 없습니다.', 4000)
       return
     }
 
@@ -107,7 +110,8 @@ export default class ChatInput extends Component {
       this.render()
     } catch (error) {
       console.error('이미지 압축 실패:', error)
-      alert('이미지 처리 중 오류가 발생했습니다.')
+      const errorInfo = getUserFriendlyError(error, '이미지 처리 중 오류가 발생했습니다.')
+      toast?.error(errorInfo.title, errorInfo.message)
       e.target.value = ''
     }
   }
@@ -489,9 +493,31 @@ export default class ChatInput extends Component {
 
     } catch (error) {
       console.error('메시지 전송/분석 에러:', error)
+
+      // 사용자 친화적 에러 처리
+      const toast = window.app?.toast
       const chatBubbles = window.app?.chatBubbles
+      const errorInfo = getUserFriendlyError(error)
+
+      // 네트워크 오류 체크
+      if (!isOnline()) {
+        toast?.error(
+          '인터넷 연결 끊김',
+          '인터넷 연결을 확인한 후 다시 시도해주세요.',
+          '확인',
+          null
+        )
+      } else {
+        toast?.error(
+          errorInfo.title,
+          errorInfo.message,
+          errorInfo.action,
+          errorInfo.action === '재시도' ? () => this.handleSendMessage() : null
+        )
+      }
+
       if (chatBubbles) {
-        chatBubbles.hideLoadingAndStartResponse("작업 처리 중 문제가 발생했습니다.")
+        chatBubbles.hideLoadingAndStartResponse("작업 처리 중 문제가 발생했습니다. 다시 시도해주세요.")
       }
     } finally {
       this.state.isSending = false
