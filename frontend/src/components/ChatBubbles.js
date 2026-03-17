@@ -763,13 +763,18 @@ export default class ChatBubbles extends Component {
     if (!results || results.length === 0) return ''
 
     const memosHtml = results.map(memo => {
+      // 날짜 추출 및 포맷팅 (한국어 형식)
       let dateText = ''
-      if (memo.capture_time) {
-        dateText = new Date(memo.capture_time).toLocaleDateString()
-      } else if (memo.created_at) {
-        dateText = new Date(memo.created_at).toLocaleDateString()
+      if (memo.created_at) {
+        dateText = new Date(memo.created_at).toLocaleDateString('ko-KR', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        })
       }
-      const content = memo.context || memo.user_text || memo.description || '기록'
+
+      // 메모 내용 추출 (우선순위: context_summary > user_text)
+      const content = memo.context_summary || memo.user_text || '기록'
 
       return `
         <div class="memo-item">
