@@ -65,6 +65,7 @@ export default class ChatBubbles extends Component {
         type: 'action',
         actionData: dbMessage.action_data,
         isStreaming: false,
+        createdAt: dbMessage.created_at, // 날짜 구분선용
       }
     }
 
@@ -73,6 +74,7 @@ export default class ChatBubbles extends Component {
       type: dbMessage.role === 'user' ? 'user' : 'ai',
       content: dbMessage.content || '',
       isStreaming: false,
+      createdAt: dbMessage.created_at, // 날짜 구분선용
     }
 
     // 이미지 URL 추가 (사용자 업로드 사진)
@@ -596,14 +598,30 @@ export default class ChatBubbles extends Component {
       </div>
     ` : ''
 
-    // 메시지 배열을 기반으로 렌더링
+    // 메시지 배열을 기반으로 렌더링 (날짜 구분선 포함)
     const messagesHtml = this.state.messages.map((message, index) => {
       const isLatest = index === this.state.messages.length - 1
       const bubbleClass = this.state.isAnimating && isLatest ? 'slide-up' : ''
 
+      // 날짜 구분선 체크
+      let dateSeparator = ''
+      if (message.createdAt && index > 0) {
+        const currentDate = this.formatDateOnly(message.createdAt)
+        const prevMessage = this.state.messages[index - 1]
+        const prevDate = prevMessage.createdAt ? this.formatDateOnly(prevMessage.createdAt) : null
+
+        if (currentDate !== prevDate) {
+          dateSeparator = this.renderDateSeparator(message.createdAt)
+        }
+      } else if (message.createdAt && index === 0) {
+        // 첫 번째 메시지에는 항상 날짜 표시
+        dateSeparator = this.renderDateSeparator(message.createdAt)
+      }
+
+      let messageHtml = ''
       if (message.type === 'ai') {
         const isCurrentlyStreaming = message.isStreaming && this.state.currentStreamingId === message.id
-        return `
+        messageHtml = `
           <div class="ai-bubble glass-bubble ${bubbleClass}">
             <div class="bubble-content">
               <div class="bubble-text">
@@ -616,13 +634,12 @@ export default class ChatBubbles extends Component {
       } else if (message.type === 'action') {
         // AI 도구 호출 결과 (사진 렌더링, 메모 렌더링 등)
         if (message.actionData.action === 'search_photos' || message.actionData.action === 'view_my_photos') {
-          return this.renderPhotoCards(message.actionData.results, message.id, bubbleClass)
+          messageHtml = this.renderPhotoCards(message.actionData.results, message.id, bubbleClass)
         } else if (message.actionData.action === 'search_memos' || message.actionData.action === 'view_my_memos') {
-          return this.renderMemoList(message.actionData.results, message.id, bubbleClass)
+          messageHtml = this.renderMemoList(message.actionData.results, message.id, bubbleClass)
         }
-        return ''
       } else if (message.type === 'diary') {
-        return `
+        messageHtml = `
           <div class="diary-bubble glass-bubble ${bubbleClass}">
             <div class="bubble-content">
               <div class="bubble-text">${this.escapeHtml(message.content)}</div>
@@ -647,13 +664,15 @@ export default class ChatBubbles extends Component {
           </div>
         ` : ''
 
-        return `
+        messageHtml = `
           <div class="user-message-block ${bubbleClass}">
             ${imageBlock}
             ${textBlock}
           </div>
         `
       }
+
+      return dateSeparator + messageHtml
     }).join('')
 
     this.el.innerHTML = `
@@ -795,6 +814,49 @@ export default class ChatBubbles extends Component {
           </div>
           <button class="action-btn thread-btn" data-message-id="${messageId}">이 기록들에 대해 이야기 나누기</button>
         </div>
+      </div>
+    `
+  }
+
+  /**
+   * 날짜만 추출 (YYYY-MM-DD 형식)
+   */
+  formatDateOnly(dateString) {
+    if (!dateString) return null
+    const date = new Date(dateString)
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  }
+
+  /**
+   * 날짜 구분선 렌더링
+   */
+  renderDateSeparator(dateString) {
+    const date = new Date(dateString)
+    const today = new Date()
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
+
+    let displayText = ''
+
+    // 오늘, 어제 체크
+    if (this.formatDateOnly(date) === this.formatDateOnly(today)) {
+      displayText = '오늘'
+    } else if (this.formatDateOnly(date) === this.formatDateOnly(yesterday)) {
+      displayText = '어제'
+    } else {
+      // 날짜 포맷: "3월 17일 일요일"
+      displayText = date.toLocaleDateString('ko-KR', {
+        month: 'long',
+        day: 'numeric',
+        weekday: 'long'
+      })
+    }
+
+    return `
+      <div class="date-separator">
+        <span class="date-separator-line"></span>
+        <span class="date-separator-text">${displayText}</span>
+        <span class="date-separator-line"></span>
       </div>
     `
   }

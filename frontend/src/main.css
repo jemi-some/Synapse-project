@@ -4924,3 +4924,50 @@ router-view {
     min-width: 0;
   }
 }
+
+/* ============================================================
+   날짜 구분선 스타일
+   ============================================================ */
+.date-separator {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 24px 0 16px 0;
+  width: 100%;
+}
+
+.date-separator-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(0, 0, 0, 0.15) 20%,
+    rgba(0, 0, 0, 0.15) 80%,
+    transparent
+  );
+}
+
+.date-separator-text {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.5);
+  white-space: nowrap;
+  padding: 4px 12px;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 12px;
+  backdrop-filter: blur(4px);
+}
+
+/* 모바일 최적화 */
+@media (max-width: 768px) {
+  .date-separator {
+    margin: 20px 0 12px 0;
+    gap: 8px;
+  }
+
+  .date-separator-text {
+    font-size: 11px;
+    padding: 3px 10px;
+  }
+}
