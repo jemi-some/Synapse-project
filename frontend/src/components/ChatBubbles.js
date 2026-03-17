@@ -1,4 +1,5 @@
 import { Component } from '../core'
+import { getMessages } from '../services/supabase'
 
 export default class ChatBubbles extends Component {
   constructor() {
@@ -17,6 +18,69 @@ export default class ChatBubbles extends Component {
 
     this.el.className = 'chat-bubbles-container'
     this.streamInterval = null
+  }
+
+  /**
+   * 세션의 모든 메시지 로드
+   */
+  async loadMessages(sessionId) {
+    if (!sessionId) {
+      console.warn('세션 ID가 없어서 메시지를 로드할 수 없습니다.')
+      return
+    }
+
+    try {
+      const { data: messages, error } = await getMessages(sessionId)
+
+      if (error) {
+        console.error('메시지 로드 실패:', error)
+        return
+      }
+
+      if (!messages || messages.length === 0) {
+        console.log('로드할 메시지가 없습니다.')
+        return
+      }
+
+      console.log(`${messages.length}개의 메시지를 로드했습니다.`)
+
+      // 메시지를 UI 형식으로 변환
+      this.state.messages = messages.map(msg => this.convertMessageToUI(msg))
+      this.state.isVisible = true
+      this.render()
+      this.scrollToBottom()
+    } catch (error) {
+      console.error('메시지 로드 중 오류:', error)
+    }
+  }
+
+  /**
+   * DB 메시지를 UI 형식으로 변환
+   */
+  convertMessageToUI(dbMessage) {
+    // action_data가 있으면 action 타입으로 처리 (검색 결과 등)
+    if (dbMessage.action_data && dbMessage.role === 'assistant') {
+      return {
+        id: dbMessage.id,
+        type: 'action',
+        actionData: dbMessage.action_data,
+        isStreaming: false,
+      }
+    }
+
+    const message = {
+      id: dbMessage.id,
+      type: dbMessage.role === 'user' ? 'user' : 'ai',
+      content: dbMessage.content || '',
+      isStreaming: false,
+    }
+
+    // 이미지 URL 추가 (사용자 업로드 사진)
+    if (dbMessage.image_url) {
+      message.imageUrl = dbMessage.image_url
+    }
+
+    return message
   }
 
   setPreviewMode(previewType = 'ai_text') {

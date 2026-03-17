@@ -602,11 +602,27 @@ export default class ChatInput extends Component {
         // window.app은 App 렌더링 이후에만 존재하므로 지연 실행
         setTimeout(() => {
           this.syncGlobalSessionId(cachedId)
+          this.loadSessionMessages(cachedId)
         }, 0)
       }
     } catch (error) {
       console.warn('세션 ID 복원 실패:', error)
     }
+  }
+
+  /**
+   * 세션의 메시지 로드
+   */
+  async loadSessionMessages(sessionId) {
+    if (!sessionId) return
+
+    const chatBubbles = window.app?.chatBubbles
+    if (!chatBubbles) {
+      console.warn('ChatBubbles 컴포넌트를 찾을 수 없습니다.')
+      return
+    }
+
+    await chatBubbles.loadMessages(sessionId)
   }
 
   persistSessionId(sessionId) {
