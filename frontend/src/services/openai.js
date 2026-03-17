@@ -38,6 +38,7 @@ export const vectorize = async (imageUrl, memoryId, metadata, userText = null) =
       metadata,
       userText,
     })
+    // 백엔드는 { success, visionTags, contextSummary, embeddingDimensions } 형태로 반환
     if (!data.success) throw new Error(data.error || '벡터화 실패')
     return data
   } catch (error) {
@@ -59,8 +60,8 @@ export const sendMessage = async (message, userId, sessionId) => {
       userId,
       sessionId,
     })
-    if (!data.success) throw new Error(data.error || '메시지 전송 실패')
-    return data
+    // 백엔드는 { response, actions } 형태로 반환
+    return { success: true, ...data }
   } catch (error) {
     console.error('채팅 응답 생성 에러:', error)
     throw new Error('AI 응답 생성에 실패했습니다.')
@@ -81,8 +82,8 @@ export const sendThreadMessage = async (message, parentMessageId, sessionId) => 
       parentMessageId,
       sessionId,
     })
-    if (!data.success) throw new Error(data.error || '스레드 전송 실패')
-    return data
+    // 백엔드는 { response } 형태로 반환
+    return { success: true, ...data }
   } catch (error) {
     console.error('스레드 대화 에러:', error)
     throw new Error('결과 대화 생성에 실패했습니다.')

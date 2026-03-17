@@ -1,9 +1,8 @@
 import { Component } from '../core'
 import { sendMessage, vectorize } from '../services/openai'
 import { addMessage, updateChatSession, getMessages, uploadFile, saveMemory, createChatSession, supabase } from '../services/supabase'
-
-const DEMO_MODE = true // 백엔드 없이 UI 테스트용
 import * as exifr from 'exifr'
+import imageCompression from 'browser-image-compression'
 
 export default class ChatInput extends Component {
   constructor() {
@@ -62,7 +61,7 @@ export default class ChatInput extends Component {
     this.restoreSessionFromCache()
   }
 
-  handleFileSelect(e) {
+  async handleFileSelect(e) {
     const file = e.target.files[0]
     if (!file) return
 
@@ -77,17 +76,40 @@ export default class ChatInput extends Component {
       return
     }
 
-    // 미리보기 URL 생성
-    const previewUrl = URL.createObjectURL(file)
+    try {
+      // 이미지 압축 (1MB 이하, 1920px 이하)
+      console.log(`원본 이미지 크기: ${(file.size / 1024 / 1024).toFixed(2)}MB`)
 
-    this.state.attachedFile = file
-    this.state.attachedFilePreview = previewUrl
+      const options = {
+        maxSizeMB: 1,           // 최대 1MB
+        maxWidthOrHeight: 1920, // 최대 해상도
+        useWebWorker: true,     // 백그라운드 처리로 성능 개선
+        fileType: file.type,    // 원본 파일 형식 유지
+        preserveExif: true      // EXIF 메타데이터 보존 (중요!)
+      }
 
-    // 파일 입력 초기화 (같은 파일 다시 선택 가능하도록)
-    e.target.value = ''
+      const compressedFile = await imageCompression(file, options)
+      console.log(`압축된 이미지 크기: ${(compressedFile.size / 1024 / 1024).toFixed(2)}MB`)
 
-    this.updateSendButton()
-    this.render()
+      // EXIF 보존 확인
+      console.log('압축된 파일:', compressedFile.name, compressedFile.type)
+
+      // 미리보기 URL 생성 (압축된 파일 사용)
+      const previewUrl = URL.createObjectURL(compressedFile)
+
+      this.state.attachedFile = compressedFile
+      this.state.attachedFilePreview = previewUrl
+
+      // 파일 입력 초기화 (같은 파일 다시 선택 가능하도록)
+      e.target.value = ''
+
+      this.updateSendButton()
+      this.render()
+    } catch (error) {
+      console.error('이미지 압축 실패:', error)
+      alert('이미지 처리 중 오류가 발생했습니다.')
+      e.target.value = ''
+    }
   }
 
   handleRemoveFile(e) {
@@ -215,12 +237,24 @@ export default class ChatInput extends Component {
       }
 
       // EXIF 데이터 추출
+      console.log('EXIF 파싱 시작:', file.name)
       const exifData = await exifr.parse(file, true)
+      console.log('EXIF 데이터:', exifData)
 
       if (exifData) {
-        // 날짜/시간
-        if (exifData.DateTimeOriginal) {
-          metadata.dateTime.original = exifData.DateTimeOriginal.toISOString()
+        // 날짜/시간 (여러 필드 시도)
+        const dateSource = exifData.DateTimeOriginal || exifData.CreateDate || exifData.ModifyDate || exifData.DateTime
+        if (dateSource) {
+          // Date 객체인 경우 ISO 문자열로 변환
+          metadata.dateTime.original = dateSource instanceof Date
+            ? dateSource.toISOString()
+            : new Date(dateSource).toISOString()
+          console.log('📅 촬영 날짜:', metadata.dateTime.original, '(출처:',
+            exifData.DateTimeOriginal ? 'DateTimeOriginal' :
+            exifData.CreateDate ? 'CreateDate' :
+            exifData.ModifyDate ? 'ModifyDate' : 'DateTime', ')')
+        } else {
+          console.warn('⚠️ 날짜/시간 정보 없음')
         }
 
         // 카메라 정보
@@ -234,6 +268,7 @@ export default class ChatInput extends Component {
 
         // GPS (exifr는 포맷팅된 위/경도를 제공함)
         if (exifData.latitude && exifData.longitude) {
+          console.log('📍 GPS 좌표:', exifData.latitude, exifData.longitude)
           metadata.gps = {
             latitude: exifData.latitude,
             longitude: exifData.longitude
@@ -246,16 +281,21 @@ export default class ChatInput extends Component {
             if (addressInfo) {
               metadata.gps.address = addressInfo.fullAddress
               metadata.gps.shortAddress = addressInfo.shortAddress
+              console.log('📍 주소:', metadata.gps.shortAddress)
             }
           } catch (geoError) {
             console.warn('역지오코딩 실패:', geoError)
           }
+        } else {
+          console.warn('⚠️ GPS 정보 없음')
         }
+      } else {
+        console.warn('⚠️ EXIF 데이터가 없습니다')
       }
 
       return metadata
     } catch (error) {
-      console.warn('메타데이터 추출 실패:', error)
+      console.error('❌ 메타데이터 추출 실패:', error)
       return { dateTime: {}, gps: null, camera: {}, imageSize: {} }
     }
   }
@@ -347,27 +387,10 @@ export default class ChatInput extends Component {
           console.warn('사용자 메시지 저장 실패:', userMessageError)
         }
 
-        if (DEMO_MODE) {
-          // DEMO_MODE: 메타데이터 기반 즉시 응답
-          const demoMetadata = {
-            gps: { shortAddress: '서울특별시 강남구' },
-            dateTime: { original: new Date().toISOString() }
-          }
-          const demoLocation = demoMetadata.gps.shortAddress
-          const demoDate = new Date(demoMetadata.dateTime.original).toLocaleString('ko-KR', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          })
-          const demoResponse = `📍 ${demoLocation}\n🕒 ${demoDate}`
-          chatBubbles?.showAIMessage(demoResponse)
-          return
-        }
-
         // [2] 메타데이터 추출
+        console.log('메타데이터 추출 시작...')
         const metadata = await this.extractMetadata(fileToUpload)
+        console.log('추출된 메타데이터:', metadata)
 
         // [3] Supabase Storage 업로드
         const { data: uploadData, error: uploadError } = await uploadFile(fileToUpload)
@@ -404,10 +427,7 @@ export default class ChatInput extends Component {
           shouldReleasePreview = true
         }
 
-        // [5] 백엔드 벡터화 파이프라인 수행 (이미지 분석 및 벡터 저장)
-        const vectorResult = await vectorize(uploadData.publicUrl, memoryId, metadata, textMessage)
-
-        // [6] AI 응답: 메타데이터에서 추출한 장소와 날짜만 즉시 표시
+        // [5] AI 응답: 메타데이터에서 추출한 장소와 날짜를 즉시 표시
         if (chatBubbles) {
           const locationText = metadata?.gps?.shortAddress || metadata?.gps?.address || '위치 정보 없음'
           const dateText = metadata?.dateTime?.original
@@ -427,6 +447,17 @@ export default class ChatInput extends Component {
           await addMessage(chatSessionId, simpleResponse, 'text', 'assistant')
         }
 
+        // [6] 백엔드 벡터화 파이프라인은 백그라운드에서 실행 (await 없음)
+        // 사용자는 이미 메타데이터 응답을 받았으므로 벡터화 완료를 기다리지 않음
+        vectorize(uploadData.publicUrl, memoryId, metadata, textMessage)
+          .then(() => {
+            console.log('✅ 벡터화 파이프라인 완료:', memoryId)
+          })
+          .catch(error => {
+            console.error('⚠️ 벡터화 파이프라인 실패 (백그라운드):', error)
+            // 사용자는 이미 응답을 받았으므로 에러를 표시하지 않음
+          })
+
       }
       // Case B: 텍스트만 전송
       else if (textMessage) {
@@ -435,13 +466,6 @@ export default class ChatInput extends Component {
         const { error: textMessageError } = await addMessage(chatSessionId, textMessage, 'text', 'user')
         if (textMessageError) {
           console.warn('텍스트 메시지 저장 실패:', textMessageError)
-        }
-
-        if (DEMO_MODE) {
-          setTimeout(() => {
-            chatBubbles?.showAIMessage('데모 응답입니다.')
-          }, 600)
-          return
         }
 
         // [2] 메인 피드 채팅 라우팅 (MCP)
