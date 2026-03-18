@@ -485,6 +485,17 @@ export default class ChatInput extends Component {
           if (responseData.actions && responseData.actions.length > 0) {
             this.state.hasPreviousActions = true
             chatBubbles.showSearchResults(responseData.actions)
+
+            // 각 검색 결과를 DB에 저장 (action_data로)
+            for (const action of responseData.actions) {
+              await addMessage(
+                chatSessionId,
+                '', // content는 빈 문자열 (action_data에 모든 정보가 있음)
+                'text',
+                'assistant',
+                action // action_data 파라미터
+              )
+            }
           } else {
             this.state.hasPreviousActions = false
           }

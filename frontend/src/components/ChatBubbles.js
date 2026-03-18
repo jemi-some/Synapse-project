@@ -12,16 +12,22 @@ export default class ChatBubbles extends Component {
         isStreaming: false,
         streamText: '',
         isLoading: false,
-        currentStreamingId: null // 현재 스트리밍 중인 메시지 ID
+        currentStreamingId: null, // 현재 스트리밍 중인 메시지 ID
+        hasMore: true, // 더 로드할 메시지가 있는지 여부
+        isLoadingMore: false, // 추가 메시지 로딩 중인지 여부
+        oldestCursor: null // 가장 오래된 메시지의 created_at (페이지네이션용)
       }
     })
 
     this.el.className = 'chat-bubbles-container'
     this.streamInterval = null
+
+    // 스크롤 이벤트 핸들러 바인딩
+    this.handleScroll = this.handleScroll.bind(this)
   }
 
   /**
-   * 세션의 모든 메시지 로드
+   * 세션의 최신 메시지 로드 (초기 로딩)
    */
   async loadMessages(sessionId) {
     if (!sessionId) {
@@ -30,7 +36,7 @@ export default class ChatBubbles extends Component {
     }
 
     try {
-      const { data: messages, error } = await getMessages(sessionId)
+      const { data: messages, error, hasMore } = await getMessages(sessionId, { limit: 30 })
 
       if (error) {
         console.error('메시지 로드 실패:', error)
@@ -39,6 +45,7 @@ export default class ChatBubbles extends Component {
 
       if (!messages || messages.length === 0) {
         console.log('로드할 메시지가 없습니다.')
+        this.state.hasMore = false
         return
       }
 
@@ -46,11 +53,109 @@ export default class ChatBubbles extends Component {
 
       // 메시지를 UI 형식으로 변환
       this.state.messages = messages.map(msg => this.convertMessageToUI(msg))
+      this.state.hasMore = hasMore
+      this.state.oldestCursor = messages.length > 0 ? messages[0].created_at : null
       this.state.isVisible = true
+      this.currentSessionId = sessionId
+
       this.render()
       this.scrollToBottom()
+
+      // 스크롤 이벤트 리스너 등록
+      this.attachScrollListener()
     } catch (error) {
       console.error('메시지 로드 중 오류:', error)
+    }
+  }
+
+  /**
+   * 이전 메시지 추가 로드 (무한 스크롤)
+   */
+  async loadMoreMessages() {
+    if (!this.state.hasMore || this.state.isLoadingMore || !this.currentSessionId) {
+      return
+    }
+
+    this.state.isLoadingMore = true
+    this.render()
+
+    try {
+      const { data: messages, error, hasMore } = await getMessages(this.currentSessionId, {
+        cursor: this.state.oldestCursor,
+        limit: 30
+      })
+
+      if (error) {
+        console.error('추가 메시지 로드 실패:', error)
+        this.state.isLoadingMore = false
+        this.render()
+        return
+      }
+
+      if (!messages || messages.length === 0) {
+        this.state.hasMore = false
+        this.state.isLoadingMore = false
+        this.render()
+        return
+      }
+
+      console.log(`${messages.length}개의 추가 메시지를 로드했습니다.`)
+
+      // 현재 스크롤 위치 저장
+      const chatContainer = this.el.querySelector('.chat-bubbles')
+      const oldScrollHeight = chatContainer ? chatContainer.scrollHeight : 0
+
+      // 새 메시지를 기존 메시지 앞에 추가
+      const newMessages = messages.map(msg => this.convertMessageToUI(msg))
+      this.state.messages = [...newMessages, ...this.state.messages]
+      this.state.hasMore = hasMore
+      this.state.oldestCursor = messages.length > 0 ? messages[0].created_at : this.state.oldestCursor
+      this.state.isLoadingMore = false
+
+      this.render()
+
+      // 스크롤 위치 복원 (새 메시지가 추가되었지만 사용자 시점은 유지)
+      if (chatContainer) {
+        const newScrollHeight = chatContainer.scrollHeight
+        chatContainer.scrollTop = newScrollHeight - oldScrollHeight
+      }
+    } catch (error) {
+      console.error('추가 메시지 로드 중 오류:', error)
+      this.state.isLoadingMore = false
+      this.render()
+    }
+  }
+
+  /**
+   * 스크롤 이벤트 핸들러
+   */
+  handleScroll(e) {
+    const container = e.target
+
+    // 상단에 도달했을 때 (스크롤 위치가 상단 근처)
+    if (container.scrollTop < 100 && this.state.hasMore && !this.state.isLoadingMore) {
+      this.loadMoreMessages()
+    }
+  }
+
+  /**
+   * 스크롤 이벤트 리스너 등록
+   */
+  attachScrollListener() {
+    const chatContainer = this.el.querySelector('.chat-bubbles')
+    if (chatContainer) {
+      chatContainer.removeEventListener('scroll', this.handleScroll)
+      chatContainer.addEventListener('scroll', this.handleScroll)
+    }
+  }
+
+  /**
+   * 컴포넌트 정리 시 이벤트 리스너 제거
+   */
+  destroy() {
+    const chatContainer = this.el.querySelector('.chat-bubbles')
+    if (chatContainer) {
+      chatContainer.removeEventListener('scroll', this.handleScroll)
     }
   }
 
@@ -65,6 +170,7 @@ export default class ChatBubbles extends Component {
         type: 'action',
         actionData: dbMessage.action_data,
         isStreaming: false,
+        createdAt: dbMessage.created_at, // 날짜 구분선용
       }
     }
 
@@ -73,6 +179,7 @@ export default class ChatBubbles extends Component {
       type: dbMessage.role === 'user' ? 'user' : 'ai',
       content: dbMessage.content || '',
       isStreaming: false,
+      createdAt: dbMessage.created_at, // 날짜 구분선용
     }
 
     // 이미지 URL 추가 (사용자 업로드 사진)
@@ -596,14 +703,30 @@ export default class ChatBubbles extends Component {
       </div>
     ` : ''
 
-    // 메시지 배열을 기반으로 렌더링
+    // 메시지 배열을 기반으로 렌더링 (날짜 구분선 포함)
     const messagesHtml = this.state.messages.map((message, index) => {
       const isLatest = index === this.state.messages.length - 1
       const bubbleClass = this.state.isAnimating && isLatest ? 'slide-up' : ''
 
+      // 날짜 구분선 체크
+      let dateSeparator = ''
+      if (message.createdAt && index > 0) {
+        const currentDate = this.formatDateOnly(message.createdAt)
+        const prevMessage = this.state.messages[index - 1]
+        const prevDate = prevMessage.createdAt ? this.formatDateOnly(prevMessage.createdAt) : null
+
+        if (currentDate !== prevDate) {
+          dateSeparator = this.renderDateSeparator(message.createdAt)
+        }
+      } else if (message.createdAt && index === 0) {
+        // 첫 번째 메시지에는 항상 날짜 표시
+        dateSeparator = this.renderDateSeparator(message.createdAt)
+      }
+
+      let messageHtml = ''
       if (message.type === 'ai') {
         const isCurrentlyStreaming = message.isStreaming && this.state.currentStreamingId === message.id
-        return `
+        messageHtml = `
           <div class="ai-bubble glass-bubble ${bubbleClass}">
             <div class="bubble-content">
               <div class="bubble-text">
@@ -616,13 +739,12 @@ export default class ChatBubbles extends Component {
       } else if (message.type === 'action') {
         // AI 도구 호출 결과 (사진 렌더링, 메모 렌더링 등)
         if (message.actionData.action === 'search_photos' || message.actionData.action === 'view_my_photos') {
-          return this.renderPhotoCards(message.actionData.results, message.id, bubbleClass)
+          messageHtml = this.renderPhotoCards(message.actionData.results, message.id, bubbleClass)
         } else if (message.actionData.action === 'search_memos' || message.actionData.action === 'view_my_memos') {
-          return this.renderMemoList(message.actionData.results, message.id, bubbleClass)
+          messageHtml = this.renderMemoList(message.actionData.results, message.id, bubbleClass)
         }
-        return ''
       } else if (message.type === 'diary') {
-        return `
+        messageHtml = `
           <div class="diary-bubble glass-bubble ${bubbleClass}">
             <div class="bubble-content">
               <div class="bubble-text">${this.escapeHtml(message.content)}</div>
@@ -647,21 +769,38 @@ export default class ChatBubbles extends Component {
           </div>
         ` : ''
 
-        return `
+        messageHtml = `
           <div class="user-message-block ${bubbleClass}">
             ${imageBlock}
             ${textBlock}
           </div>
         `
       }
+
+      return dateSeparator + messageHtml
     }).join('')
+
+    // 추가 메시지 로딩 인디케이터
+    const loadingMoreHtml = this.state.isLoadingMore ? `
+      <div class="loading-more-indicator">
+        <div class="loading-dots">
+          <span class="dot"></span>
+          <span class="dot"></span>
+          <span class="dot"></span>
+        </div>
+      </div>
+    ` : ''
 
     this.el.innerHTML = `
       <div class="chat-bubbles ${this.state.isAnimating ? 'animating' : ''}">
+        ${loadingMoreHtml}
         ${messagesHtml}
         ${loadingHtml}
       </div>
     `
+
+    // 스크롤 이벤트 리스너 재등록 (innerHTML로 DOM이 새로 생성되므로)
+    this.attachScrollListener()
 
     // 이벤트 리스너 연동: 이야기 나누기 (스레드) 버튼
     const threadBtns = this.el.querySelectorAll('.thread-btn')
@@ -763,13 +902,18 @@ export default class ChatBubbles extends Component {
     if (!results || results.length === 0) return ''
 
     const memosHtml = results.map(memo => {
+      // 날짜 추출 및 포맷팅 (한국어 형식)
       let dateText = ''
-      if (memo.capture_time) {
-        dateText = new Date(memo.capture_time).toLocaleDateString()
-      } else if (memo.created_at) {
-        dateText = new Date(memo.created_at).toLocaleDateString()
+      if (memo.created_at) {
+        dateText = new Date(memo.created_at).toLocaleDateString('ko-KR', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        })
       }
-      const content = memo.context || memo.user_text || memo.description || '기록'
+
+      // 메모 내용 추출 (우선순위: context_summary > user_text)
+      const content = memo.context_summary || memo.user_text || '기록'
 
       return `
         <div class="memo-item">
@@ -790,6 +934,49 @@ export default class ChatBubbles extends Component {
           </div>
           <button class="action-btn thread-btn" data-message-id="${messageId}">이 기록들에 대해 이야기 나누기</button>
         </div>
+      </div>
+    `
+  }
+
+  /**
+   * 날짜만 추출 (YYYY-MM-DD 형식)
+   */
+  formatDateOnly(dateString) {
+    if (!dateString) return null
+    const date = new Date(dateString)
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  }
+
+  /**
+   * 날짜 구분선 렌더링
+   */
+  renderDateSeparator(dateString) {
+    const date = new Date(dateString)
+    const today = new Date()
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
+
+    let displayText = ''
+
+    // 오늘, 어제 체크
+    if (this.formatDateOnly(date) === this.formatDateOnly(today)) {
+      displayText = '오늘'
+    } else if (this.formatDateOnly(date) === this.formatDateOnly(yesterday)) {
+      displayText = '어제'
+    } else {
+      // 날짜 포맷: "3월 17일 일요일"
+      displayText = date.toLocaleDateString('ko-KR', {
+        month: 'long',
+        day: 'numeric',
+        weekday: 'long'
+      })
+    }
+
+    return `
+      <div class="date-separator">
+        <span class="date-separator-line"></span>
+        <span class="date-separator-text">${displayText}</span>
+        <span class="date-separator-line"></span>
       </div>
     `
   }
