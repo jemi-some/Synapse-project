@@ -134,21 +134,48 @@ export const deleteChatSession = async (sessionId) => {
 }
 
 /**
- * 특정 채팅 세션에 속한 텍스트 메시지 전체 목록을 오래된 순서대로 가져옵니다.
- * @param {string} sessionId - 조회할 채팅 세션 ID
- * @returns {Promise<{data: Array|null, error: Object|null}>} 메시지 객체 배열
+ * 대화 세션에 속한 메시지를 시간 순서대로 가져옵니다. (Cursor 기반 페이지네이션)
+ * @param {string} sessionId - 조회할 채팅 세션 UUID
+ * @param {Object} options - 페이지네이션 옵션
+ * @param {string} options.cursor - 이전에 로드한 마지막 메시지의 created_at (ISO 8601)
+ * @param {number} options.limit - 한 번에 가져올 메시지 개수 (기본값: 50)
+ * @param {boolean} options.ascending - 정렬 순서 (기본값: true)
+ * @returns {Promise<{data: Array|null, error: Object|null, hasMore: boolean}>} 메시지 배열과 더 있는지 여부
  */
-export const getMessages = async (sessionId) => {
+export const getMessages = async (sessionId, options = {}) => {
   try {
-    const { data, error } = await supabase
+    const { cursor = null, limit = 50, ascending = true } = options
+
+    let query = supabase
       .from('chat_messages')
       .select('*')
       .eq('chat_session_id', sessionId)
       .eq('message_type', 'text')
-      .order('created_at', { ascending: true })
-    return { data, error }
+      .order('created_at', { ascending })
+      .limit(limit + 1) // +1개를 가져와서 hasMore 판단
+
+    // cursor가 있으면 해당 시점 이후/이전 메시지만 가져오기
+    if (cursor) {
+      if (ascending) {
+        query = query.lt('created_at', cursor) // 이전 메시지 (과거로)
+      } else {
+        query = query.gt('created_at', cursor) // 이후 메시지 (미래로)
+      }
+    }
+
+    const { data, error } = await query
+
+    if (error) {
+      return { data: null, error, hasMore: false }
+    }
+
+    // hasMore 판단: limit+1개를 요청했으므로, limit+1개가 왔으면 더 있는 것
+    const hasMore = data && data.length > limit
+    const messages = hasMore ? data.slice(0, limit) : data
+
+    return { data: messages, error: null, hasMore }
   } catch (error) {
-    return { data: null, error }
+    return { data: null, error, hasMore: false }
   }
 }
 

@@ -12,16 +12,22 @@ export default class ChatBubbles extends Component {
         isStreaming: false,
         streamText: '',
         isLoading: false,
-        currentStreamingId: null // 현재 스트리밍 중인 메시지 ID
+        currentStreamingId: null, // 현재 스트리밍 중인 메시지 ID
+        hasMore: true, // 더 로드할 메시지가 있는지 여부
+        isLoadingMore: false, // 추가 메시지 로딩 중인지 여부
+        oldestCursor: null // 가장 오래된 메시지의 created_at (페이지네이션용)
       }
     })
 
     this.el.className = 'chat-bubbles-container'
     this.streamInterval = null
+
+    // 스크롤 이벤트 핸들러 바인딩
+    this.handleScroll = this.handleScroll.bind(this)
   }
 
   /**
-   * 세션의 모든 메시지 로드
+   * 세션의 최신 메시지 로드 (초기 로딩)
    */
   async loadMessages(sessionId) {
     if (!sessionId) {
@@ -30,7 +36,7 @@ export default class ChatBubbles extends Component {
     }
 
     try {
-      const { data: messages, error } = await getMessages(sessionId)
+      const { data: messages, error, hasMore } = await getMessages(sessionId, { limit: 30 })
 
       if (error) {
         console.error('메시지 로드 실패:', error)
@@ -39,6 +45,7 @@ export default class ChatBubbles extends Component {
 
       if (!messages || messages.length === 0) {
         console.log('로드할 메시지가 없습니다.')
+        this.state.hasMore = false
         return
       }
 
@@ -46,11 +53,109 @@ export default class ChatBubbles extends Component {
 
       // 메시지를 UI 형식으로 변환
       this.state.messages = messages.map(msg => this.convertMessageToUI(msg))
+      this.state.hasMore = hasMore
+      this.state.oldestCursor = messages.length > 0 ? messages[0].created_at : null
       this.state.isVisible = true
+      this.currentSessionId = sessionId
+
       this.render()
       this.scrollToBottom()
+
+      // 스크롤 이벤트 리스너 등록
+      this.attachScrollListener()
     } catch (error) {
       console.error('메시지 로드 중 오류:', error)
+    }
+  }
+
+  /**
+   * 이전 메시지 추가 로드 (무한 스크롤)
+   */
+  async loadMoreMessages() {
+    if (!this.state.hasMore || this.state.isLoadingMore || !this.currentSessionId) {
+      return
+    }
+
+    this.state.isLoadingMore = true
+    this.render()
+
+    try {
+      const { data: messages, error, hasMore } = await getMessages(this.currentSessionId, {
+        cursor: this.state.oldestCursor,
+        limit: 30
+      })
+
+      if (error) {
+        console.error('추가 메시지 로드 실패:', error)
+        this.state.isLoadingMore = false
+        this.render()
+        return
+      }
+
+      if (!messages || messages.length === 0) {
+        this.state.hasMore = false
+        this.state.isLoadingMore = false
+        this.render()
+        return
+      }
+
+      console.log(`${messages.length}개의 추가 메시지를 로드했습니다.`)
+
+      // 현재 스크롤 위치 저장
+      const chatContainer = this.el.querySelector('.chat-bubbles')
+      const oldScrollHeight = chatContainer ? chatContainer.scrollHeight : 0
+
+      // 새 메시지를 기존 메시지 앞에 추가
+      const newMessages = messages.map(msg => this.convertMessageToUI(msg))
+      this.state.messages = [...newMessages, ...this.state.messages]
+      this.state.hasMore = hasMore
+      this.state.oldestCursor = messages.length > 0 ? messages[0].created_at : this.state.oldestCursor
+      this.state.isLoadingMore = false
+
+      this.render()
+
+      // 스크롤 위치 복원 (새 메시지가 추가되었지만 사용자 시점은 유지)
+      if (chatContainer) {
+        const newScrollHeight = chatContainer.scrollHeight
+        chatContainer.scrollTop = newScrollHeight - oldScrollHeight
+      }
+    } catch (error) {
+      console.error('추가 메시지 로드 중 오류:', error)
+      this.state.isLoadingMore = false
+      this.render()
+    }
+  }
+
+  /**
+   * 스크롤 이벤트 핸들러
+   */
+  handleScroll(e) {
+    const container = e.target
+
+    // 상단에 도달했을 때 (스크롤 위치가 상단 근처)
+    if (container.scrollTop < 100 && this.state.hasMore && !this.state.isLoadingMore) {
+      this.loadMoreMessages()
+    }
+  }
+
+  /**
+   * 스크롤 이벤트 리스너 등록
+   */
+  attachScrollListener() {
+    const chatContainer = this.el.querySelector('.chat-bubbles')
+    if (chatContainer) {
+      chatContainer.removeEventListener('scroll', this.handleScroll)
+      chatContainer.addEventListener('scroll', this.handleScroll)
+    }
+  }
+
+  /**
+   * 컴포넌트 정리 시 이벤트 리스너 제거
+   */
+  destroy() {
+    const chatContainer = this.el.querySelector('.chat-bubbles')
+    if (chatContainer) {
+      chatContainer.removeEventListener('scroll', this.handleScroll)
     }
   }
 
@@ -675,12 +780,27 @@ export default class ChatBubbles extends Component {
       return dateSeparator + messageHtml
     }).join('')
 
+    // 추가 메시지 로딩 인디케이터
+    const loadingMoreHtml = this.state.isLoadingMore ? `
+      <div class="loading-more-indicator">
+        <div class="loading-dots">
+          <span class="dot"></span>
+          <span class="dot"></span>
+          <span class="dot"></span>
+        </div>
+      </div>
+    ` : ''
+
     this.el.innerHTML = `
       <div class="chat-bubbles ${this.state.isAnimating ? 'animating' : ''}">
+        ${loadingMoreHtml}
         ${messagesHtml}
         ${loadingHtml}
       </div>
     `
+
+    // 스크롤 이벤트 리스너 재등록 (innerHTML로 DOM이 새로 생성되므로)
+    this.attachScrollListener()
 
     // 이벤트 리스너 연동: 이야기 나누기 (스레드) 버튼
     const threadBtns = this.el.querySelectorAll('.thread-btn')
