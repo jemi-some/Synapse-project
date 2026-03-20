@@ -37,15 +37,25 @@ test-supabase.js
 # ========================
 # documents
 # ========================
-docs/*.sql
+docs/0_portfolio/
+docs/4_database/*.sql
+docs/6_history_and_logs/
 AGENT.md
 COMPONENTS.md
 idea.md
 scenario.md
 reference_papers.md
-01.PORTFOLIO.md
+feature_portfolio.md
 backend_troubleshooting_template.md
+backend_troubleshooting.md
+git_workflow_guide.md
+github_repository_setup.md
+github_topics_guide.md
+vector_visualization_guide.md
 README_ADD.md
+Project_Planning_except.md
+Resume_Review.md
+Resume.md
 
 # ========================
 # System / Misc
