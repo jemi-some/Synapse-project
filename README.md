@@ -28,10 +28,10 @@
 
 ## 핵심 기획 및 설계 문서
 
-- [프로젝트 기획안 (PRD)](./docs/1_portfolio/Project_Planning_Document.md): 문제 정의부터 RAG/Tool Calling을 통한 해결 등
-- [Database Schema Design](./docs/Database_Schema_Design.md): pgvector 기반 벡터 DB 튜닝(HNSW), JSONB 상태 복원, 스레딩 테이블 설계도 (ERD 포함)
-- [Backend API Specification](./docs/Backend_API_Specification.md): 멀티모달 RAG 파이프라인 및 MCP Tool Calling API 명세, Context Window 최적화 분석
-- [Features 딥다이브 문서](./docs/1_portfolio/features/): RAG, 검색 라우팅, 스레드 대화 등 개별 기능의 기술적 해결 과정
+- [프로젝트 기획안 (PRD)](docs/1_planning/Project_Planning_Document.md): 문제 정의부터 RAG/Tool Calling을 통한 해결 등
+- [Database Schema Design](docs/2_architecture/Database_Schema_Design.md): pgvector 기반 벡터 DB 튜닝(HNSW), JSONB 상태 복원, 스레딩 테이블 설계도 (ERD 포함)
+- [Backend API Specification](docs/2_architecture/Backend_API_Specification.md): 멀티모달 RAG 파이프라인 및 MCP Tool Calling API 명세, Context Window 최적화 분석
+- [Features 딥다이브 문서](docs/3_features): RAG, 검색 라우팅, 스레드 대화 등 개별 기능의 기술적 해결 과정
 
 ---
 
