@@ -291,6 +291,111 @@ openai_client = wrap_openai(OpenAI(
 
 ---
 
+## 문제 4: RN — Supabase Storage 업로드 0 bytes
+
+> React Native 환경에서 발생한 문제
+
+### 🔴 증상
+
+```
+Supabase Storage에 업로드된 이미지가 0 bytes
+이미지 URL은 정상 생성되지만 파일 내용이 없음
+```
+
+### 🔍 원인 분석
+
+`fetch(localFileUri) + response.blob()`이 React Native(Hermes 엔진)에서 로컬 `file://` URI에 대해 빈 Blob을 반환하는 알려진 버그.
+
+```ts
+// ❌ RN에서 동작하지 않음
+const response = await fetch(compressedUri)  // file:///...
+const blob = await response.blob()           // 0 bytes Blob 반환
+```
+
+### 💡 해결 방법: expo-file-system으로 base64 읽기
+
+```ts
+import * as FileSystem from 'expo-file-system/legacy'
+
+// ✅ 파일을 base64로 읽어 Uint8Array로 변환 후 업로드
+const base64 = await FileSystem.readAsStringAsync(compressedUri, {
+  encoding: 'base64',
+})
+const binaryStr = atob(base64)
+const bytes = new Uint8Array(binaryStr.length)
+for (let i = 0; i < binaryStr.length; i++) {
+  bytes[i] = binaryStr.charCodeAt(i)
+}
+
+await supabase.storage
+  .from('media')
+  .upload(storagePath, bytes, { contentType: 'image/jpeg' })
+```
+
+**주의**: `expo-file-system` v55부터 `readAsStringAsync`가 deprecated됨 → `expo-file-system/legacy`로 import.
+
+---
+
+## 문제 5: RN — 압축 후에도 OpenAI Vision API 타임아웃 재발
+
+> 문제 1에서 프론트 압축으로 해결했으나 RN 환경에서 재발
+
+### 🔴 증상
+
+```
+2026-03-22 [INFO] 1/3 Vision 태그 추출 시작: https://xxx.supabase.co/storage/v1/...
+2026-03-22 [INFO] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 400 Bad Request"
+[ERROR] 벡터화 파이프라인 실패: Error code: 400 - {'error': {'message': 'Timeout while downloading...'}}
+```
+
+이미지를 압축(1920px, 0.8 quality)해도 동일한 타임아웃 에러 발생.
+
+### 🔍 원인 분석
+
+압축은 **파일 크기** 문제를 해결하지만, **네트워크 경로** 문제는 별개:
+
+```
+압축 전: OpenAI → Supabase CDN (4.5MB 다운로드) ❌ 타임아웃
+압축 후: OpenAI → Supabase CDN (1MB 다운로드)   ❌ 여전히 타임아웃 (CDN 응답 속도 문제)
+```
+
+OpenAI 서버 ↔ Supabase CDN 간 네트워크 지연이 원인이므로 파일 크기와 무관하게 발생.
+
+### 💡 해결 방법: 백엔드에서 이미지 직접 다운로드 후 base64 전달
+
+```python
+import base64
+import httpx
+
+async def _fetch_image_as_base64(image_url: str) -> str:
+    """이미지 URL을 다운로드해서 base64 data URI로 변환."""
+    async with httpx.AsyncClient(timeout=30) as client:
+        res = await client.get(image_url)
+        res.raise_for_status()
+        b64 = base64.b64encode(res.content).decode()
+        content_type = res.headers.get("content-type", "image/jpeg").split(";")[0]
+        return f"data:{content_type};base64,{b64}"
+
+async def extract_vision_tags(image_url: str) -> dict:
+    image_data_uri = await _fetch_image_as_base64(image_url)  # 백엔드가 먼저 다운로드
+
+    response = openai_client.chat.completions.create(
+        ...
+        "image_url": {"url": image_data_uri, ...},  # base64 전달
+    )
+```
+
+**두 해결책의 역할 구분:**
+
+| 해결책 | 해결하는 문제 |
+|--------|-------------|
+| 프론트 이미지 압축 | 파일 크기 절감, 업로드 속도 향상, Storage/API 비용 절감 |
+| 백엔드 base64 변환 | OpenAI ↔ Supabase CDN 네트워크 타임아웃 우회 |
+
+두 방법은 서로 다른 문제를 해결하므로 **함께 적용**해야 함.
+
+---
+
 ## 참고 자료
 
 - [browser-image-compression](https://www.npmjs.com/package/browser-image-compression)

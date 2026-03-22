@@ -12,8 +12,11 @@ Phase 1-B:
 - thread_conversation()      — 스레드 내 멀티턴 대화 (검색 결과 context 기반)
 """
 
+import base64
 import json
 import logging
+
+import httpx
 
 from app.config import (
     openai_client,
@@ -42,6 +45,16 @@ def _parse_json_response(text: str) -> dict:
 # 1. Vision 태그 추출 (GPT-4o)
 # ============================================================
 
+async def _fetch_image_as_base64(image_url: str) -> str:
+    """이미지 URL을 다운로드해서 base64 data URI로 변환합니다."""
+    async with httpx.AsyncClient(timeout=30) as client:
+        res = await client.get(image_url)
+        res.raise_for_status()
+        b64 = base64.b64encode(res.content).decode()
+        content_type = res.headers.get("content-type", "image/jpeg").split(";")[0]
+        return f"data:{content_type};base64,{b64}"
+
+
 async def extract_vision_tags(image_url: str) -> dict:
     """
     GPT-4o Vision API로 사진을 분석하여 시각적 태그를 추출합니다.
@@ -55,6 +68,10 @@ async def extract_vision_tags(image_url: str) -> dict:
             "mood": "평화로움"
         }
     """
+    # OpenAI가 외부 URL을 직접 fetch하면 타임아웃이 발생할 수 있으므로
+    # 서버에서 먼저 다운로드한 뒤 base64로 전달합니다.
+    image_data_uri = await _fetch_image_as_base64(image_url)
+
     response = openai_client.chat.completions.create(
         model=DEFAULT_VISION_MODEL,
         messages=[
@@ -84,7 +101,7 @@ async def extract_vision_tags(image_url: str) -> dict:
                     },
                     {
                         "type": "image_url",
-                        "image_url": {"url": image_url, "detail": IMAGE_DETAIL},
+                        "image_url": {"url": image_data_uri, "detail": IMAGE_DETAIL},
                     },
                 ],
             },
