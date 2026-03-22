@@ -451,6 +451,17 @@ async def route_message(
             "content": json.dumps(result, ensure_ascii=False, default=str),
         })
 
+    # ── 검색 결과가 있으면 2nd LLM 호출 생략 (UI에서 카드로 표시) ──
+    has_search_results = any(
+        a.get("action") in ("search_photos", "search_memos")
+        for a in actions
+    )
+    if has_search_results:
+        return {
+            "response": "",
+            "actions": actions,
+        }
+
     # ── 2nd Turn 응답: 도구 결과를 본 LLM이 최종 응답 생성 ──
     final_response = openai_client.chat.completions.create(
         model=DEFAULT_CHAT_MODEL,
