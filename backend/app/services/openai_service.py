@@ -451,16 +451,20 @@ async def route_message(
             "content": json.dumps(result, ensure_ascii=False, default=str),
         })
 
-    # ── 검색 결과가 있으면 2nd LLM 호출 생략 (UI에서 카드로 표시) ──
-    has_search_results = any(
-        a.get("action") in ("search_photos", "search_memos")
+    # ── 검색 액션 실행 여부 / 실제 결과 존재 여부 분리 ──
+    searched = any(a.get("action") in ("search_photos", "search_memos") for a in actions)
+    has_results = any(
+        a.get("action") in ("search_photos", "search_memos") and len(a.get("results") or []) > 0
         for a in actions
     )
-    if has_search_results:
-        return {
-            "response": "",
-            "actions": actions,
-        }
+
+    if searched and has_results:
+        # 결과 있음 → UI에서 카드로 표시, LLM 응답 불필요
+        return {"response": "", "actions": actions}
+
+    if searched and not has_results:
+        # 검색했지만 결과 없음 → 하드코딩 메시지 반환
+        return {"response": "검색된 결과가 없습니다.", "actions": actions}
 
     # ── 2nd Turn 응답: 도구 결과를 본 LLM이 최종 응답 생성 ──
     final_response = openai_client.chat.completions.create(
