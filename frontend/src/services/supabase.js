@@ -190,11 +190,13 @@ export const getMessages = async (sessionId, options = {}) => {
  */
 export const addMessage = async (sessionId, content, messageType = 'text', role = 'user', actionData = null) => {
   try {
+    const { data: { user } } = await supabase.auth.getUser()
     const messageRow = {
       chat_session_id: sessionId,
       content: content,
       message_type: messageType,
-      role: role
+      role: role,
+      user_id: user?.id ?? null
     }
 
     // action_data가 있으면 추가 (검색 결과 등)

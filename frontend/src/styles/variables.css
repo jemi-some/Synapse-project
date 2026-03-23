@@ -2,28 +2,26 @@
 
 :root {
   /* ===== Colors ===== */
-  --color-primary: #FF6B6B;
-  --color-secondary: #4ECDC4;
-  --color-accent: #FFE66D;
+  --color-primary: #4a8fd4;
 
   /* Background Colors */
-  --color-bg-main: #FBE8D3;
-  --color-bg-card: #FFFFFF;
-  --color-bg-overlay: rgba(0, 0, 0, 0.5);
+  --color-bg-main: #0c1828;
+  --color-bg-card: #111f33;
+  --color-bg-subtle: #0f1e30;
+  --color-bg-overlay: rgba(0, 0, 0, 0.7);
 
   /* Text Colors */
-  --color-text-primary: #2C3E50;
-  --color-text-secondary: #7F8C8D;
-  --color-text-light: #95A5A6;
+  --color-text-primary: #dde4f0;
+  --color-text-secondary: #8b9db8;
+  --color-text-light: #4a607a;
 
   /* Border Colors */
-  --color-border: rgba(0, 0, 0, 0.06);
-  --color-border-focus: rgba(0, 0, 0, 0.15);
+  --color-border: rgba(74, 143, 212, 0.15);
+  --color-border-focus: rgba(74, 143, 212, 0.35);
 
   /* Chat Bubble Colors */
-  --color-bubble-user: #E3F2FD;
-  --color-bubble-ai: #FFFFFF;
-  --color-bubble-system: #FFF9E6;
+  --color-bubble-user: #1e4f96;
+  --color-bubble-ai: #131f30;
 
   /* ===== Typography ===== */
   --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
@@ -66,10 +64,10 @@
   --radius-full: 9999px;
 
   /* ===== Shadows ===== */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.15);
-  --shadow-xl: 0 8px 32px rgba(0, 0, 0, 0.2);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --shadow-xl: 0 8px 32px rgba(0, 0, 0, 0.55);
 
   /* ===== Transitions ===== */
   --transition-fast: 150ms ease;

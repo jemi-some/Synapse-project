@@ -187,23 +187,6 @@ export default class Sidebar extends Component {
         ` : ''}
       </div>
       
-      <!-- 로그아웃 팝업 -->
-      ${this.state.showLogoutPopup ? `
-        <div class="logout-popup-overlay">
-          <div class="logout-popup">
-            <div class="popup-header">
-              <h3>로그아웃</h3>
-            </div>
-            <div class="popup-content">
-              <p>정말 로그아웃하시겠습니까?</p>
-            </div>
-            <div class="popup-actions">
-              <button class="cancel-button">취소</button>
-              <button class="confirm-button">로그아웃</button>
-            </div>
-          </div>
-        </div>
-      ` : ''}
     `
 
     this.attachEventListeners()
@@ -263,32 +246,6 @@ export default class Sidebar extends Component {
       })
     }
 
-    // 로그아웃 팝업 이벤트
-    const logoutPopupOverlay = this.el.querySelector('.logout-popup-overlay')
-    if (logoutPopupOverlay) {
-      // 오버레이 클릭으로 팝업 닫기
-      logoutPopupOverlay.addEventListener('click', (e) => {
-        if (e.target === logoutPopupOverlay) {
-          this.hideLogoutPopup()
-        }
-      })
-    }
-
-    const cancelButton = this.el.querySelector('.cancel-button')
-    if (cancelButton) {
-      cancelButton.addEventListener('click', (e) => {
-        e.preventDefault()
-        this.hideLogoutPopup()
-      })
-    }
-
-    const confirmButton = this.el.querySelector('.confirm-button')
-    if (confirmButton) {
-      confirmButton.addEventListener('click', (e) => {
-        e.preventDefault()
-        this.handleLogout()
-      })
-    }
 
     this.syncOverlayState()
   }
@@ -535,13 +492,39 @@ export default class Sidebar extends Component {
   }
 
   showLogoutPopup() {
-    this.state.showLogoutPopup = true
+    this.state.isMobileOpen = false
     this.render()
+    this.syncOverlayState()
+
+    const overlay = document.createElement('div')
+    overlay.className = 'logout-popup-overlay'
+    overlay.id = 'logout-popup-overlay'
+    overlay.innerHTML = `
+      <div class="logout-popup">
+        <div class="popup-header">
+          <h3>로그아웃</h3>
+        </div>
+        <div class="popup-content">
+          <p>정말 로그아웃하시겠습니까?</p>
+        </div>
+        <div class="popup-actions">
+          <button class="cancel-button" id="logout-cancel">취소</button>
+          <button class="confirm-button" id="logout-confirm">로그아웃</button>
+        </div>
+      </div>
+    `
+    document.body.appendChild(overlay)
+
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) this.hideLogoutPopup()
+    })
+    document.getElementById('logout-cancel').addEventListener('click', () => this.hideLogoutPopup())
+    document.getElementById('logout-confirm').addEventListener('click', () => this.handleLogout())
   }
 
   hideLogoutPopup() {
-    this.state.showLogoutPopup = false
-    this.render()
+    const overlay = document.getElementById('logout-popup-overlay')
+    if (overlay) overlay.remove()
   }
 
   async handleLogout() {
