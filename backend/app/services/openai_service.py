@@ -306,10 +306,18 @@ async def _execute_search_memories(query: str, user_id: str) -> dict:
 
     # 사진과 메모 분류
     photos = [r for r in results if r.get("file_url")]
-    memos = [r for r in results if not r.get("file_url")]
+    memos = sorted(
+        [r for r in results if not r.get("file_url")],
+        key=lambda r: r.get("created_at") or "",
+    )
 
-    # 우선순위: 사진 > 메모 (프론트엔드는 한 번에 하나의 action만 처리)
-    if photos:
+    if photos and memos:
+        # 사진과 메모 둘 다 있으면 두 개의 action을 리스트로 반환
+        return [
+            {"action": "search_photos", "query": query, "results": photos, "count": len(photos)},
+            {"action": "search_memos",  "query": query, "results": memos,  "count": len(memos)},
+        ]
+    elif photos:
         return {
             "action": "search_photos",
             "query": query,
@@ -442,7 +450,11 @@ async def route_message(
         else:
             result = {"error": f"알 수 없는 도구: {fn_name}"}
 
-        actions.append(result)
+        # search_memories가 사진+메모 둘 다 있을 때 리스트를 반환할 수 있음
+        if isinstance(result, list):
+            actions.extend(result)
+        else:
+            actions.append(result)
 
         # 도구 실행 결과를 대화 히스토리에 추가
         messages.append({
