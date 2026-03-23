@@ -60,6 +60,22 @@ export default class ChatInput extends Component {
 
     // 로컬에 저장된 세션 ID 복원
     this.restoreSessionFromCache()
+
+    // 로그인/로그아웃 시 세션 초기화 및 재로드
+    supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN') {
+        this.persistSessionId(null)
+        this.state.currentChatSessionId = null
+        if (window.app) window.app.currentSessionId = null
+        setTimeout(() => this.restoreSessionFromCache(), 0)
+      } else if (event === 'SIGNED_OUT') {
+        this.persistSessionId(null)
+        this.state.currentChatSessionId = null
+        if (window.app) window.app.currentSessionId = null
+        const chatBubbles = window.app?.chatBubbles
+        if (chatBubbles) chatBubbles.clearMessages()
+      }
+    })
   }
 
   async handleFileSelect(e) {
@@ -473,31 +489,49 @@ export default class ChatInput extends Component {
         }
 
         // [2] 메인 피드 채팅 라우팅 (MCP)
+        if (chatBubbles) chatBubbles.showLoadingBubble()
         const responseData = await sendMessage(textMessage, userId, chatSessionId)
+        if (chatBubbles) chatBubbles.hideLoadingBubble()
 
-        // [3] AI 텍스트 응답 출력
+        // [3] AI 응답 처리 — RN_Task.md AI 응답 로직 흐름 기준
         if (chatBubbles && responseData.success) {
-          // AI 텍스트 응답
-          chatBubbles.showAIMessage(responseData.response)
-          await addMessage(chatSessionId, responseData.response, 'text', 'assistant')
+          // 백엔드 snake_case → 앱 포맷(camelCase) 변환
+          const normalizeAction = (a) => ({
+            action: a.action,
+            count: a.count ?? null,
+            query: a.query ?? null,
+            content: a.content ?? null,
+            results: a.results ?? null,
+            memoryId: a.memory_id ?? a.memoryId ?? null,
+          })
+          const actions = (responseData.actions ?? []).map(normalizeAction)
+          const searched = actions.some(a => a.action === 'search_photos' || a.action === 'search_memos')
+          const hasResults = actions.some(
+            a => (a.action === 'search_photos' || a.action === 'search_memos') &&
+                 a.results && a.results.length > 0
+          )
 
-          // actions 검색 결과가 있으면 렌더링하고, 다음 입력 시 스레드로 빠지도록 플래그 설정
-          if (responseData.actions && responseData.actions.length > 0) {
+          if (searched && hasResults) {
+            // 검색 결과 있음 → AI 텍스트 스킵, 카드/메모만 표시
             this.state.hasPreviousActions = true
-            chatBubbles.showSearchResults(responseData.actions)
-
-            // 각 검색 결과를 DB에 저장 (action_data로)
-            for (const action of responseData.actions) {
-              await addMessage(
-                chatSessionId,
-                '', // content는 빈 문자열 (action_data에 모든 정보가 있음)
-                'text',
-                'assistant',
-                action // action_data 파라미터
-              )
+            const totalCount = actions.reduce((sum, a) => sum + (a.count || 0), 0)
+            const summaryText = `검색결과 ${totalCount}건을 찾았습니다.`
+            chatBubbles.showSearchResults(actions)
+            for (let i = 0; i < actions.length; i++) {
+              const content = i === 0 ? summaryText : ''
+              await addMessage(chatSessionId, content, 'text', 'assistant', actions[i])
             }
-          } else {
+          } else if (searched && !hasResults) {
+            // 검색했지만 결과 없음 → 하드코딩 메시지
             this.state.hasPreviousActions = false
+            chatBubbles.showAIMessage(responseData.response)
+            await addMessage(chatSessionId, responseData.response, 'text', 'assistant')
+          } else {
+            // save_memo / 잡담 → AI 텍스트 응답 표시
+            this.state.hasPreviousActions = false
+            chatBubbles.showAIMessage(responseData.response)
+            await addMessage(chatSessionId, responseData.response, 'text', 'assistant',
+              actions.length > 0 ? actions[0] : null)
           }
         }
       }
@@ -508,6 +542,7 @@ export default class ChatInput extends Component {
       // 사용자 친화적 에러 처리
       const toast = window.app?.toast
       const chatBubbles = window.app?.chatBubbles
+      chatBubbles?.hideLoadingBubble()
       const errorInfo = getUserFriendlyError(error)
 
       // 네트워크 오류 체크
@@ -608,14 +643,39 @@ export default class ChatInput extends Component {
     if (typeof localStorage === 'undefined') return
     try {
       const cachedId = localStorage.getItem(this.sessionStorageKey)
-      if (cachedId) {
-        this.state.currentChatSessionId = cachedId
-        // window.app은 App 렌더링 이후에만 존재하므로 지연 실행
-        setTimeout(() => {
-          this.syncGlobalSessionId(cachedId)
-          this.loadSessionMessages(cachedId)
-        }, 0)
-      }
+
+      setTimeout(async () => {
+        try {
+          const { data: authData } = await supabase.auth.getUser()
+          const userId = authData?.user?.id
+          if (!userId) return
+
+          if (cachedId) {
+            // 캐시된 세션이 현재 유저 소유인지 확인
+            const { data } = await supabase
+              .from('chat_sessions')
+              .select('id')
+              .eq('id', cachedId)
+              .eq('user_id', userId)
+              .maybeSingle()
+
+            if (data?.id) {
+              this.state.currentChatSessionId = cachedId
+              this.syncGlobalSessionId(cachedId)
+              this.loadSessionMessages(cachedId)
+              return
+            }
+            // 소유자 불일치 → 캐시 제거 후 DB에서 조회
+            this.persistSessionId(null)
+          }
+
+          // 캐시 없거나 불일치 → DB에서 유저의 최신 세션 조회
+          const sessionId = await this.ensureExistingSession()
+          if (sessionId) this.loadSessionMessages(sessionId)
+        } catch (e) {
+          console.warn('세션 복원 실패:', e)
+        }
+      }, 0)
     } catch (error) {
       console.warn('세션 ID 복원 실패:', error)
     }
