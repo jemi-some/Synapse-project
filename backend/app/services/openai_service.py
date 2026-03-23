@@ -306,7 +306,10 @@ async def _execute_search_memories(query: str, user_id: str) -> dict:
 
     # 사진과 메모 분류
     photos = [r for r in results if r.get("file_url")]
-    memos = [r for r in results if not r.get("file_url")]
+    memos = sorted(
+        [r for r in results if not r.get("file_url")],
+        key=lambda r: r.get("created_at") or "",
+    )
 
     if photos and memos:
         # 사진과 메모 둘 다 있으면 두 개의 action을 리스트로 반환
