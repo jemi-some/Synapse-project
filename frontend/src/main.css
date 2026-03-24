@@ -5500,3 +5500,169 @@ router-view {
     transform: scale(1.0);
   }
 }
+/* ==================== LOGIN SCREEN ==================== */
+.login-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-body);
+  background-image:
+    radial-gradient(ellipse 70% 35% at 60% 42%, var(--nebula-1) 0%, transparent 60%),
+    radial-gradient(ellipse 85% 45% at 18% 55%, var(--nebula-2) 0%, transparent 65%),
+    radial-gradient(ellipse 55% 40% at 80% 22%, var(--nebula-3) 0%, transparent 60%),
+    radial-gradient(ellipse 130% 18% at 50% 52%, var(--nebula-4) 0%, transparent 100%),
+    radial-gradient(0.8px 0.8px at 5% 3%, rgba(255,255,255,0.7), transparent),
+    radial-gradient(0.8px 0.8px at 18% 2%, rgba(255,255,255,0.8), transparent),
+    radial-gradient(0.8px 0.8px at 32% 5%, rgba(255,255,255,0.7), transparent),
+    radial-gradient(0.8px 0.8px at 45% 3%, rgba(255,255,255,0.8), transparent),
+    radial-gradient(0.8px 0.8px at 60% 6%, rgba(255,255,255,0.7), transparent),
+    radial-gradient(0.8px 0.8px at 74% 4%, rgba(255,255,255,0.8), transparent),
+    radial-gradient(0.8px 0.8px at 90% 7%, rgba(255,255,255,0.7), transparent),
+    radial-gradient(0.8px 0.8px at 9% 28%, rgba(255,255,255,0.5), transparent),
+    radial-gradient(0.8px 0.8px at 23% 35%, rgba(255,255,255,0.6), transparent),
+    radial-gradient(0.8px 0.8px at 37% 30%, rgba(255,255,255,0.5), transparent),
+    radial-gradient(0.8px 0.8px at 50% 32%, rgba(255,255,255,0.6), transparent),
+    radial-gradient(0.8px 0.8px at 64% 29%, rgba(255,255,255,0.5), transparent),
+    radial-gradient(0.8px 0.8px at 78% 33%, rgba(255,255,255,0.6), transparent),
+    radial-gradient(0.8px 0.8px at 13% 48%, rgba(255,255,255,0.6), transparent),
+    radial-gradient(0.8px 0.8px at 27% 52%, rgba(255,255,255,0.5), transparent),
+    radial-gradient(0.8px 0.8px at 41% 55%, rgba(255,255,255,0.6), transparent),
+    radial-gradient(0.8px 0.8px at 55% 50%, rgba(255,255,255,0.5), transparent),
+    radial-gradient(0.8px 0.8px at 69% 47%, rgba(255,255,255,0.6), transparent),
+    radial-gradient(0.8px 0.8px at 83% 53%, rgba(255,255,255,0.5), transparent),
+    radial-gradient(0.8px 0.8px at 19% 65%, rgba(255,255,255,0.8), transparent),
+    radial-gradient(0.8px 0.8px at 40% 68%, rgba(255,255,255,0.5), transparent),
+    radial-gradient(0.8px 0.8px at 61% 71%, rgba(255,255,255,0.7), transparent),
+    radial-gradient(0.8px 0.8px at 75% 73%, rgba(255,255,255,0.8), transparent),
+    radial-gradient(0.8px 0.8px at 14% 88%, rgba(255,255,255,0.6), transparent),
+    radial-gradient(0.8px 0.8px at 35% 80%, rgba(255,255,255,0.7), transparent),
+    radial-gradient(0.8px 0.8px at 56% 83%, rgba(255,255,255,0.5), transparent),
+    radial-gradient(0.8px 0.8px at 77% 94%, rgba(255,255,255,0.8), transparent),
+    radial-gradient(0.8px 0.8px at 92% 88%, rgba(255,255,255,0.7), transparent),
+    radial-gradient(1.2px 1.2px at 10% 5%, rgba(255,255,255,0.85), transparent),
+    radial-gradient(1.2px 1.2px at 35% 18%, rgba(255,255,255,0.8), transparent),
+    radial-gradient(1.2px 1.2px at 55% 8%, rgba(255,255,255,0.85), transparent),
+    radial-gradient(1.2px 1.2px at 78% 16%, rgba(255,255,255,0.8), transparent),
+    radial-gradient(1.2px 1.2px at 22% 42%, rgba(255,255,255,0.85), transparent),
+    radial-gradient(1.2px 1.2px at 48% 38%, rgba(255,255,255,0.8), transparent),
+    radial-gradient(1.2px 1.2px at 72% 31%, rgba(255,255,255,0.85), transparent),
+    radial-gradient(1.2px 1.2px at 40% 65%, rgba(255,255,255,0.8), transparent),
+    radial-gradient(1.2px 1.2px at 62% 55%, rgba(255,255,255,0.85), transparent),
+    radial-gradient(1.2px 1.2px at 30% 85%, rgba(255,255,255,0.8), transparent),
+    radial-gradient(1.2px 1.2px at 74% 88%, rgba(255,255,255,0.8), transparent),
+    radial-gradient(1.8px 1.8px at 20% 30%, var(--star-a), transparent),
+    radial-gradient(1.8px 1.8px at 65% 20%, var(--star-b), transparent),
+    radial-gradient(1.8px 1.8px at 45% 75%, var(--star-c), transparent),
+    radial-gradient(1.8px 1.8px at 80% 55%, var(--star-d), transparent),
+    radial-gradient(1.8px 1.8px at 10% 90%, var(--star-e), transparent),
+    radial-gradient(1.8px 1.8px at 58% 45%, var(--star-f), transparent),
+    radial-gradient(1.8px 1.8px at 3% 50%, var(--star-g), transparent),
+    radial-gradient(1.8px 1.8px at 87% 72%, var(--star-h), transparent);
+  background-size: 100% 100%;
+}
+
+.login-overlay.hidden {
+  display: none;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 320px;
+  padding: var(--spacing-3xl) var(--spacing-2xl);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-lg);
+}
+
+.login-logo .material-symbols-outlined {
+  font-size: 48px;
+  color: var(--color-primary);
+}
+
+.login-title {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.login-subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: 0;
+  text-align: center;
+}
+
+.login-buttons {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-md);
+}
+
+.login-btn {
+  width: 100%;
+  height: 48px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.login-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.login-btn:not(:disabled):hover {
+  opacity: 0.85;
+}
+
+.google-btn {
+  background: #fff;
+  color: #3c4043;
+}
+
+.demo-btn {
+  background: var(--color-bg-card);
+  color: var(--color-text-primary);
+}
+
+.demo-btn .material-symbols-outlined {
+  font-size: 18px;
+  color: var(--color-primary);
+}
+
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  color: var(--color-text-light);
+  font-size: var(--font-size-xs);
+}
+
+.login-divider::before,
+.login-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+
+.login-notice {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-light);
+  margin: 0;
+  text-align: center;
+}

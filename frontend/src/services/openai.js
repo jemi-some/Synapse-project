@@ -5,7 +5,7 @@
 import { retryWithBackoff, isRetryableError } from '../utils/errorHandler'
 
 // 백엔드 API URL (개발 환경)
-const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8000'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 
 /**
  * 공통 API 호출 함수 (재시도 로직 포함)

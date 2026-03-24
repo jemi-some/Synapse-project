@@ -441,53 +441,8 @@ export default class Sidebar extends Component {
   }
 
   async handleUserClick() {
-    console.log('사용자 아바타 클릭됨')
-
     if (this.state.isAuthenticated && this.state.user) {
-      if (this.state.user.is_anonymous) {
-        // 익명 사용자 - 구글 로그인 제안
-        console.log('익명 사용자 - 구글 로그인 제안')
-        await this.handleGoogleLogin()
-      } else {
-        // Google 로그인 사용자 - 로그아웃 팝업 표시
-        console.log('로그아웃 팝업 표시')
-        this.showLogoutPopup()
-      }
-    } else {
-      // 비로그인 상태 (드물게 발생) - 익명 로그인 시도
-      console.log('비로그인 상태 - 익명 로그인 시도')
-      await this.handleAnonymousLogin()
-    }
-  }
-
-  async handleGoogleLogin() {
-    console.log('구글 로그인 시작')
-    try {
-      const { data, error } = await signInWithGoogle()
-
-      if (error) {
-        console.error('로그인 실패:', error)
-      } else {
-        console.log('로그인 성공:', data)
-      }
-    } catch (error) {
-      console.error('로그인 처리 중 오류:', error)
-    }
-  }
-
-  async handleAnonymousLogin() {
-    console.log('익명 로그인 시도')
-    try {
-      const { signInAnonymously } = await import('../services/supabase')
-      const { data, error } = await signInAnonymously()
-
-      if (error) {
-        console.error('익명 로그인 실패:', error)
-      } else {
-        console.log('익명 로그인 성공:', data)
-      }
-    } catch (error) {
-      console.error('익명 로그인 처리 중 오류:', error)
+      this.showLogoutPopup()
     }
   }
 
