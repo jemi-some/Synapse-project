@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" fill="none">
+  <defs>
+    <radialGradient id="bg1" cx="30%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#1e1454"/>
+      <stop offset="100%" stop-color="#080612"/>
+    </radialGradient>
+    <radialGradient id="nebula1" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#4f3ba8" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#4f3ba8" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="nebula2" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1d4ed8" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#1d4ed8" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="spark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a78bfa"/>
+      <stop offset="100%" stop-color="#60a5fa"/>
+    </linearGradient>
+    <linearGradient id="textGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#c4b5fd"/>
+      <stop offset="100%" stop-color="#93c5fd"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 배경 -->
+  <rect width="1200" height="630" fill="url(#bg1)"/>
+  <ellipse cx="360" cy="250" rx="400" ry="300" fill="url(#nebula1)"/>
+  <ellipse cx="900" cy="400" rx="350" ry="250" fill="url(#nebula2)"/>
+
+  <!-- 별 장식 -->
+  <circle cx="100" cy="80" r="1.5" fill="white" opacity="0.8"/>
+  <circle cx="250" cy="50" r="1" fill="white" opacity="0.6"/>
+  <circle cx="450" cy="120" r="2" fill="white" opacity="0.7"/>
+  <circle cx="700" cy="60" r="1.5" fill="white" opacity="0.5"/>
+  <circle cx="950" cy="90" r="1" fill="white" opacity="0.8"/>
+  <circle cx="1100" cy="150" r="2" fill="white" opacity="0.6"/>
+  <circle cx="80" cy="400" r="1" fill="white" opacity="0.5"/>
+  <circle cx="1150" cy="500" r="1.5" fill="white" opacity="0.7"/>
+  <circle cx="200" cy="550" r="1" fill="white" opacity="0.6"/>
+  <circle cx="1050" cy="300" r="1" fill="white" opacity="0.5"/>
+
+  <!-- 중앙 스파크 아이콘 -->
+  <g transform="translate(600, 200)">
+    <!-- 큰 별 -->
+    <path d="M0 -60 L10 -10 L60 0 L10 10 L0 60 L-10 10 L-60 0 L-10 -10 Z" fill="url(#spark)"/>
+    <!-- 작은 별 좌상 -->
+    <path d="M-75 -65 L-70 -45 L-50 -40 L-70 -35 L-75 -15 L-80 -35 L-100 -40 L-80 -45 Z" fill="#a78bfa" opacity="0.8"/>
+    <!-- 작은 별 우하 -->
+    <path d="M75 35 L79 50 L94 54 L79 58 L75 73 L71 58 L56 54 L71 50 Z" fill="#60a5fa" opacity="0.7"/>
+  </g>
+
+  <!-- 앱 이름 -->
+  <text x="600" y="360" font-family="Georgia, serif" font-size="96" font-weight="700"
+    fill="url(#textGrad)" text-anchor="middle" letter-spacing="8">Synapse</text>
+
+  <!-- 서브타이틀 -->
+  <text x="600" y="420" font-family="-apple-system, sans-serif" font-size="28"
+    fill="white" text-anchor="middle" opacity="0.6" letter-spacing="2">사진과 메모를 AI와 함께 기억해요</text>
+</svg>

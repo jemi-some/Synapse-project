@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#2a1f5e"/>
+      <stop offset="100%" stop-color="#0d0b1e"/>
+    </radialGradient>
+    <linearGradient id="spark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a78bfa"/>
+      <stop offset="100%" stop-color="#60a5fa"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
+  <!-- 중앙 큰 별 -->
+  <path d="M32 12 L34.5 26.5 L48 29 L34.5 31.5 L32 46 L29.5 31.5 L16 29 L29.5 26.5 Z" fill="url(#spark)"/>
+  <!-- 작은 별 좌상 -->
+  <path d="M16 16 L17 21 L22 22 L17 23 L16 28 L15 23 L10 22 L15 21 Z" fill="#a78bfa" opacity="0.7"/>
+  <!-- 작은 별 우하 -->
+  <path d="M48 38 L49 43 L54 44 L49 45 L48 50 L47 45 L42 44 L47 43 Z" fill="#60a5fa" opacity="0.6"/>
+</svg>
