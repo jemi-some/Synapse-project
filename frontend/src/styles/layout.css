@@ -94,7 +94,7 @@
   flex-shrink: 0;
   width: 100%;
   padding: var(--spacing-lg) var(--spacing-xl);
-  padding-bottom: calc(var(--footer-height) + var(--spacing-xl));
+  padding-bottom: calc(var(--footer-height) + var(--spacing-xl) + env(safe-area-inset-bottom));
 }
 
 /* ==================== FOOTER (Fixed Input) ==================== */
