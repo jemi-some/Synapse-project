@@ -4,18 +4,21 @@
 
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.SUPABASE_URL
-const supabaseKey = process.env.SUPABASE_ANON_KEY
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 export const supabase = createClient(supabaseUrl, supabaseKey)
 
 /**
- * 익명 로그인을 수행합니다.
- * @returns {Promise<{data: Object|null, error: Object|null}>} 로그인 결과 (사용자 정보 및 오류)
+ * 데모 계정으로 로그인합니다. (포트폴리오 체험용)
+ * @returns {Promise<{data: Object|null, error: Object|null}>}
  */
-export const signInAnonymously = async () => {
+export const signInWithDemo = async () => {
   try {
-    const { data, error } = await supabase.auth.signInAnonymously()
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: import.meta.env.VITE_DEMO_EMAIL,
+      password: import.meta.env.VITE_DEMO_PASSWORD
+    })
     return { data, error }
   } catch (error) {
     return { data: null, error }

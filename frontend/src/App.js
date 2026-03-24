@@ -5,7 +5,8 @@ import ChatBubbles from './components/ChatBubbles'
 import ChatInput from './components/ChatInput'
 import Toast from './components/Toast'
 
-import { onAuthStateChange, getCurrentUser, signInAnonymously } from './services/supabase'
+import LoginScreen from './components/LoginScreen'
+import { onAuthStateChange, getCurrentUser } from './services/supabase'
 
 export default class App extends Component {
   constructor() {
@@ -20,56 +21,31 @@ export default class App extends Component {
   // 인증 (기존 코드 유지)
   // ============================================================
   async initAuth() {
-    const { user, error } = await getCurrentUser()
+    const { user } = await getCurrentUser()
 
     if (!user) {
-      console.log('No user found, signing in anonymously...')
-      const { data, error: anonError } = await signInAnonymously()
-      if (anonError) {
-        console.error('Anonymous sign in failed:', anonError)
-        console.warn('Continuing without authentication...')
-      } else {
-        console.log('Anonymous sign in successful:', data)
-        const { user: newUser } = await getCurrentUser()
-        if (newUser) {
-          this.user = newUser
-          this.onAuthStateChanged(newUser)
-        }
-      }
+      this.loginScreen.show()
     } else {
+      this.loginScreen.hide()
       this.user = user
       this.onAuthStateChanged(user)
     }
 
     onAuthStateChange((event, session) => {
-      console.log('Auth state changed:', event, session)
-
       if (event === 'SIGNED_IN' && session?.user) {
+        this.loginScreen.hide()
         this.user = session.user
         this.onAuthStateChanged(session.user)
       } else if (event === 'SIGNED_OUT') {
         this.user = null
-        this.onAuthStateChanged(null)
-        this.signInAnonymouslyAfterSignOut()
+        this.loginScreen.show()
       }
     })
-  }
-
-  async signInAnonymouslyAfterSignOut() {
-    console.log('Signing in anonymously after sign out...')
-    const { data, error } = await signInAnonymously()
-    if (error) {
-      console.error('Anonymous sign in failed after sign out:', error)
-    } else {
-      console.log('Anonymous sign in successful after sign out:', data)
-    }
   }
 
   onAuthStateChanged(user) {
     if (user) {
       console.log('User logged in:', user.email)
-    } else {
-      console.log('User logged out')
     }
   }
 
@@ -101,6 +77,7 @@ export default class App extends Component {
   // ============================================================
   render() {
     // 컴포넌트 인스턴스 생성
+    this.loginScreen = new LoginScreen()
     this.header = new MobileHeader()
     this.sidebar = new Sidebar()
     this.chatBubbles = new ChatBubbles()
@@ -167,6 +144,10 @@ export default class App extends Component {
     this.chatInput.el.className = 'app-footer'
 
     this.el.querySelector('.app-toast-placeholder').replaceWith(this.toast.el)
+
+    // 로그인 화면 마운트 (초기에는 숨김, initAuth가 제어)
+    this.el.appendChild(this.loginScreen.el)
+    this.loginScreen.hide()
 
     // 사이드바 오버레이 동기화
     if (typeof this.sidebar.syncOverlayState === 'function') {
