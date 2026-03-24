@@ -148,9 +148,9 @@ export const getMessages = async (sessionId, options = {}) => {
 
     let query = supabase
       .from('chat_messages')
-      .select('*')
+      .select('*, memories(file_url, metadata)')
       .eq('chat_session_id', sessionId)
-      .eq('message_type', 'text')
+      .in('message_type', ['text', 'image'])
       .order('created_at', { ascending })
       .limit(limit + 1) // +1개를 가져와서 hasMore 판단
 
@@ -188,7 +188,7 @@ export const getMessages = async (sessionId, options = {}) => {
  * @param {Object} [metadata={}] - 메시지에 추가될 메타데이터 JSON
  * @returns {Promise<{data: Object|null, error: Object|null}>} 기록된 메시지 객체 반환
  */
-export const addMessage = async (sessionId, content, messageType = 'text', role = 'user', actionData = null) => {
+export const addMessage = async (sessionId, content, messageType = 'text', role = 'user', actionData = null, memoryId = null) => {
   try {
     const { data: { user } } = await supabase.auth.getUser()
     const messageRow = {
@@ -199,9 +199,12 @@ export const addMessage = async (sessionId, content, messageType = 'text', role 
       user_id: user?.id ?? null
     }
 
-    // action_data가 있으면 추가 (검색 결과 등)
     if (actionData) {
       messageRow.action_data = actionData
+    }
+
+    if (memoryId) {
+      messageRow.memory_id = memoryId
     }
 
     const { data, error } = await supabase

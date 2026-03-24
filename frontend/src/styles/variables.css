@@ -2,26 +2,26 @@
 
 :root {
   /* ===== Colors ===== */
-  --color-primary: #4a8fd4;
+  --color-primary: #c8892a;
 
   /* Background Colors */
-  --color-bg-main: #0c1828;
-  --color-bg-card: #111f33;
-  --color-bg-subtle: #0f1e30;
+  --color-bg-main: #100c06;
+  --color-bg-card: #1a1208;
+  --color-bg-subtle: #15100a;
   --color-bg-overlay: rgba(0, 0, 0, 0.7);
 
   /* Text Colors */
-  --color-text-primary: #dde4f0;
-  --color-text-secondary: #8b9db8;
-  --color-text-light: #4a607a;
+  --color-text-primary: #f0e8d8;
+  --color-text-secondary: #a89878;
+  --color-text-light: #5a4a30;
 
   /* Border Colors */
-  --color-border: rgba(74, 143, 212, 0.15);
-  --color-border-focus: rgba(74, 143, 212, 0.35);
+  --color-border: rgba(200, 137, 42, 0.18);
+  --color-border-focus: rgba(200, 137, 42, 0.4);
 
   /* Chat Bubble Colors */
-  --color-bubble-user: #1e4f96;
-  --color-bubble-ai: #131f30;
+  --color-bubble-user: #7a4a12;
+  --color-bubble-ai: #17100a;
 
   /* ===== Typography ===== */
   --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
