@@ -278,7 +278,8 @@ export const saveMemory = async (memoryData) => {
         file_size: memoryData.file_size,
         mime_type: memoryData.mime_type,
         metadata: memoryData.selected_metadata || {},
-        chat_session_id: memoryData.chat_session_id
+        chat_session_id: memoryData.chat_session_id,
+        user_text: memoryData.user_text || null
       }])
       .select()
       .single()
