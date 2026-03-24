@@ -23,18 +23,14 @@ app = FastAPI(
 )
 
 # CORS 설정
-_origins = (
-    ["*"] if FRONTEND_URL == "*"
-    else [
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
         FRONTEND_URL,
         "http://localhost:5173",      # Vite 개발 서버
         "http://localhost:4173",      # Vite preview
-    ]
-)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=_origins,
-    allow_credentials=FRONTEND_URL != "*",
+    ],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
