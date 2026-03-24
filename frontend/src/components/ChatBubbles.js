@@ -183,17 +183,41 @@ export default class ChatBubbles extends Component {
       }
     }
 
+    // AI 사진 메타데이터 응답: memory_id가 있는 assistant 메시지
+    if (dbMessage.role === 'assistant' && dbMessage.memories?.metadata) {
+      const mem = dbMessage.memories
+      const rawDate = mem.metadata?.dateTime?.original
+      const dateText = rawDate
+        ? new Date(rawDate).toLocaleString('ko-KR', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          })
+        : ''
+      const locationText = mem.metadata?.gps?.shortAddress || mem.metadata?.gps?.address || '위치 정보 없음'
+      return {
+        id: dbMessage.id,
+        type: 'photo_meta',
+        date: dateText,
+        location: locationText,
+        isStreaming: false,
+        createdAt: dbMessage.created_at,
+      }
+    }
+
     const message = {
       id: dbMessage.id,
       type: dbMessage.role === 'user' ? 'user' : 'ai',
       content: dbMessage.content || '',
       isStreaming: false,
-      createdAt: dbMessage.created_at, // 날짜 구분선용
+      createdAt: dbMessage.created_at,
     }
 
-    // 이미지 URL 추가 (사용자 업로드 사진)
-    if (dbMessage.image_url) {
-      message.imageUrl = dbMessage.image_url
+    // 사진 메시지: memories JOIN으로 가져온 file_url 사용
+    if (dbMessage.message_type === 'image' && dbMessage.memories?.file_url) {
+      message.imageUrl = dbMessage.memories.file_url
     }
 
     return message
@@ -783,6 +807,8 @@ export default class ChatBubbles extends Component {
           cardsHtml = this.renderMemoList(message.actionData.results, message.id, bubbleClass)
         }
         messageHtml = summaryBubble + cardsHtml
+      } else if (message.type === 'photo_meta') {
+        messageHtml = this.renderPhotoMeta(message.date, message.location, bubbleClass)
       } else if (message.type === 'diary') {
         messageHtml = `
           <div class="diary-bubble glass-bubble ${bubbleClass}">
@@ -871,6 +897,45 @@ export default class ChatBubbles extends Component {
 
     this.render()
     this.scrollToBottom()
+  }
+
+  showPhotoUploadResult(date, location) {
+    const messageId = `ai-photo-meta-${Date.now()}`
+    this.state.messages.push({
+      type: 'photo_meta',
+      date,
+      location,
+      id: messageId,
+      isStreaming: false
+    })
+    this.render()
+    this.scrollToBottom()
+  }
+
+  renderPhotoMeta(date, location, bubbleClass = '') {
+    const dateRow = date ? `
+      <div class="photo-card-meta-row">
+        <span class="material-symbols-outlined photo-meta-icon">calendar_today</span>
+        <span class="photo-meta-text">${this.escapeHtml(date)}</span>
+      </div>` : ''
+    const locationRow = `
+      <div class="photo-card-meta-row">
+        <span class="material-symbols-outlined photo-meta-icon">location_on</span>
+        <span class="photo-meta-text">${this.escapeHtml(location || '위치 정보 없음')}</span>
+      </div>`
+
+    return `
+      <div class="ai-bubble-wrapper">
+        <div class="ai-bubble glass-bubble ${bubbleClass}">
+          <div class="bubble-content">
+            <div class="photo-card-meta">
+              ${dateRow}
+              ${locationRow}
+            </div>
+          </div>
+        </div>
+      </div>
+    `
   }
 
   renderPhotoCards(results, messageId, bubbleClass = '') {

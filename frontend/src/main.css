@@ -1,38 +1,237 @@
 html {
   /* ===== 기본 색상 ===== */
-  --color-black: #07101d;
-  --color-white: #dde4f0;
+  --color-black: #0d0a06;
+  --color-white: #f0e8d8;
 
   /* ===== 배경 ===== */
+  --color-background: #100c06;
+  --color-background-subtle: #1a1208;
+  --color-area: #15100a;
+
+  /* ===== 텍스트 ===== */
+  --color-text-default: #f0e8d8;
+  --color-text-subtle: #a89878;
+  --color-text-placeholder: #5a4a30;
+
+  /* ===== 채팅 버블 ===== */
+  --color-bubble-user: #7a4a12;
+  --color-bubble-user-text: #ffffff;
+  --color-bubble-ai: #17100a;
+  --color-bubble-ai-text: #f0e8d8;
+
+  /* ===== 구분선 / 테두리 ===== */
+  --color-border: rgba(200, 137, 42, 0.18);
+
+  /* ===== 하이라이트 ===== */
+  --color-primary: #c8892a;
+  --color-highlight: #c8892a;
+
+  /* ===== 하위 호환 (레거시) ===== */
+  --color-sunset-beige: #1a1208;
+  --color-background-black: #0d0a06;
+
+  /* ===== 테마 전환용 변수 ===== */
+  --bg-body: #080502;
+  --bg-app: rgba(8, 5, 2, 0.55);
+  --nebula-1: rgba(220, 140, 30, 0.22);
+  --nebula-2: rgba(180, 90, 20, 0.18);
+  --nebula-3: rgba(150, 80, 15, 0.14);
+  --nebula-4: rgba(200, 120, 25, 0.1);
+  --star-a: rgba(255, 220, 120, 0.95);
+  --star-b: rgba(255, 240, 180, 1.0);
+  --star-c: rgba(255, 200, 80, 0.95);
+  --star-d: rgba(255, 235, 160, 1.0);
+  --star-e: rgba(255, 210, 100, 0.95);
+  --star-f: rgba(255, 245, 200, 1.0);
+  --star-g: rgba(255, 200, 90, 0.9);
+  --star-h: rgba(255, 225, 130, 0.95);
+  --hud-bg: #100c06;
+  --hud-gradient-top: #160e05;
+  --hud-gradient-bottom: #0c0804;
+  --hud-border: rgba(200, 137, 42, 0.18);
+  --hud-glow: rgba(200, 130, 30, 0.06);
+  --hud-bracket: rgba(200, 137, 42, 0.3);
+  --hud-scanline: rgba(200, 140, 40, 0.03);
+}
+
+/* ============================================================
+   Cool 테마 (차가운 딥 블루 우주)
+   ============================================================ */
+html[data-theme="cool"] {
+  --color-black: #07101d;
+  --color-white: #dde4f0;
   --color-background: #0c1828;
   --color-background-subtle: #111f33;
   --color-area: #0f1e30;
-
-  /* ===== 텍스트 ===== */
   --color-text-default: #dde4f0;
   --color-text-subtle: #8b9db8;
   --color-text-placeholder: #4a607a;
-
-  /* ===== 채팅 버블 ===== */
   --color-bubble-user: #1e4f96;
   --color-bubble-user-text: #ffffff;
   --color-bubble-ai: #131f30;
   --color-bubble-ai-text: #dde4f0;
-
-  /* ===== 구분선 / 테두리 ===== */
   --color-border: rgba(74, 143, 212, 0.15);
-
-  /* ===== 하이라이트 ===== */
   --color-primary: #4a8fd4;
   --color-highlight: #c8892a;
-
-  /* ===== 하위 호환 (레거시) ===== */
   --color-sunset-beige: #111f33;
   --color-background-black: #07101d;
+  --bg-body: #020810;
+  --bg-app: rgba(2, 8, 16, 0.55);
+  --nebula-1: rgba(30, 80, 160, 0.22);
+  --nebula-2: rgba(28, 72, 155, 0.2);
+  --nebula-3: rgba(55, 95, 175, 0.16);
+  --nebula-4: rgba(35, 62, 128, 0.11);
+  --star-a: rgba(200, 220, 255, 0.95);
+  --star-b: rgba(255, 255, 255, 1.0);
+  --star-c: rgba(255, 240, 200, 0.95);
+  --star-d: rgba(255, 255, 255, 1.0);
+  --star-e: rgba(200, 220, 255, 0.95);
+  --star-f: rgba(255, 255, 255, 1.0);
+  --star-g: rgba(220, 200, 255, 0.9);
+  --star-h: rgba(255, 240, 200, 0.95);
+  --hud-bg: #07101d;
+  --hud-gradient-top: #0a1628;
+  --hud-gradient-bottom: #050d1a;
+  --hud-border: rgba(74, 143, 212, 0.18);
+  --hud-glow: rgba(74, 143, 212, 0.06);
+  --hud-bracket: rgba(74, 143, 212, 0.3);
+  --hud-scanline: rgba(74, 143, 212, 0.03);
 }
+
+/* Cool 테마 - 요소별 색상 오버라이드 */
+html[data-theme="cool"] body {
+  background-color: var(--bg-body);
+}
+
+html[data-theme="cool"] #root {
+  background-color: var(--bg-app);
+}
+
+html[data-theme="cool"] .user-bubble {
+  background: #1e4f96;
+}
+
+html[data-theme="cool"] .diary-bubble {
+  background: #1e4f96;
+}
+
+html[data-theme="cool"] .ai-bubble {
+  background: #131f30;
+  border-color: rgba(74, 143, 212, 0.2);
+}
+
+html[data-theme="cool"] .sidebar-content {
+  background: #0a1422;
+  border-right-color: rgba(74, 143, 212, 0.15);
+}
+
+html[data-theme="cool"] .sidebar-footer {
+  border-top-color: rgba(74, 143, 212, 0.15);
+}
+
+html[data-theme="cool"] .date-separator-line {
+  background: linear-gradient(to right, transparent, rgba(74, 143, 212, 0.25) 20%, rgba(74, 143, 212, 0.25) 80%, transparent);
+}
+
+html[data-theme="cool"] .date-separator-text {
+  color: rgba(139, 157, 184, 0.9);
+  background: rgba(74, 143, 212, 0.08);
+  border-color: rgba(74, 143, 212, 0.15);
+}
+
+html[data-theme="cool"] .action-bubble {
+  border-color: rgba(200, 137, 42, 0.3);
+  background: #131f30;
+}
+
+html[data-theme="cool"] .photo-card.action-card {
+  background: #0f1e30;
+}
+
+html[data-theme="cool"] .photo-card-date {
+  color: #8b9db8;
+  background: #0f1e30;
+  border-bottom-color: rgba(74, 143, 212, 0.1);
+}
+
+html[data-theme="cool"] .photo-card-desc {
+  color: #dde4f0;
+  background: #0f1e30;
+}
+
+html[data-theme="cool"] .photo-card-meta {
+  background: #0f1e30;
+}
+
+html[data-theme="cool"] .photo-meta-icon,
+html[data-theme="cool"] .memo-date {
+  color: #4a8fd4;
+}
+
+html[data-theme="cool"] .photo-meta-text {
+  color: #8b9db8;
+}
+
+html[data-theme="cool"] .memo-bullet {
+  background: #4a8fd4;
+}
+
+html[data-theme="cool"] .memo-text {
+  color: #dde4f0;
+}
+
+html[data-theme="cool"] .action-btn.thread-btn {
+  background: rgba(74, 143, 212, 0.12);
+  border-color: rgba(74, 143, 212, 0.3);
+  color: #4a8fd4;
+}
+
+html[data-theme="cool"] .action-btn.thread-btn:hover {
+  background: rgba(74, 143, 212, 0.22);
+  border-color: rgba(74, 143, 212, 0.5);
+}
+
+html[data-theme="cool"] .logout-popup {
+  background: #0f1e30;
+  border-color: rgba(74, 143, 212, 0.25);
+}
+
+html[data-theme="cool"] .popup-header {
+  border-bottom-color: rgba(74, 143, 212, 0.15);
+}
+
+html[data-theme="cool"] .popup-actions {
+  border-top-color: rgba(74, 143, 212, 0.15);
+}
+
+html[data-theme="cool"] .cancel-button {
+  background: rgba(74, 143, 212, 0.1);
+  border-color: rgba(74, 143, 212, 0.2);
+}
+
+html[data-theme="cool"] .cancel-button:hover {
+  background: rgba(74, 143, 212, 0.18);
+}
+
+html[data-theme="cool"] .chat-input-wrapper {
+  background: rgba(10, 22, 40, 0.85);
+  border-color: rgba(74, 180, 255, 0.3);
+}
+
+html[data-theme="cool"] .chat-input-wrapper.focused {
+  border-color: rgba(74, 200, 255, 0.6);
+  box-shadow: 0 0 0 1px rgba(74, 200, 255, 0.1), 0 0 16px rgba(74, 200, 255, 0.12), 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+html[data-theme="cool"] .chat-title {
+  color: rgba(180, 220, 255, 0.9);
+  text-shadow: 0 0 12px rgba(74, 180, 255, 0.4);
+}
+
 #root.route-library .content-scroll {
   padding-bottom: 16px;
 }
+
 /* 로딩 메시지 스타일 */
 .loading-message {
   margin-bottom: 8px !important;
@@ -99,113 +298,113 @@ html {
 
 body {
   /* font-family: 'Helvetica Neue', sans-serif; */
-  background-color: #020810;
+  background-color: var(--bg-body);
   background-image:
-    /* ── 성운 글로우 ── */
-    radial-gradient(ellipse 70% 35% at 60% 42%, rgba(160, 110, 30, 0.13) 0%, transparent 60%),
-    radial-gradient(ellipse 85% 45% at 18% 55%, rgba(28, 72, 155, 0.2) 0%, transparent 65%),
-    radial-gradient(ellipse 55% 40% at 80% 22%, rgba(55, 95, 175, 0.16) 0%, transparent 60%),
-    radial-gradient(ellipse 130% 18% at 50% 52%, rgba(35, 62, 128, 0.11) 0%, transparent 100%),
+    /* ── 성운 글로우 (테마 변수) ── */
+    radial-gradient(ellipse 70% 35% at 60% 42%, var(--nebula-1) 0%, transparent 60%),
+    radial-gradient(ellipse 85% 45% at 18% 55%, var(--nebula-2) 0%, transparent 65%),
+    radial-gradient(ellipse 55% 40% at 80% 22%, var(--nebula-3) 0%, transparent 60%),
+    radial-gradient(ellipse 130% 18% at 50% 52%, var(--nebula-4) 0%, transparent 100%),
     /* ── 작은 별 (0.8px) ── */
-    radial-gradient(0.8px 0.8px at 5% 3%, rgba(255,255,255,0.7), transparent),
-    radial-gradient(0.8px 0.8px at 12% 8%, rgba(255,255,255,0.6), transparent),
-    radial-gradient(0.8px 0.8px at 18% 2%, rgba(255,255,255,0.8), transparent),
-    radial-gradient(0.8px 0.8px at 25% 15%, rgba(255,255,255,0.5), transparent),
-    radial-gradient(0.8px 0.8px at 32% 5%, rgba(255,255,255,0.7), transparent),
-    radial-gradient(0.8px 0.8px at 38% 12%, rgba(255,255,255,0.6), transparent),
-    radial-gradient(0.8px 0.8px at 45% 3%, rgba(255,255,255,0.8), transparent),
-    radial-gradient(0.8px 0.8px at 52% 9%, rgba(255,255,255,0.5), transparent),
-    radial-gradient(0.8px 0.8px at 60% 6%, rgba(255,255,255,0.7), transparent),
-    radial-gradient(0.8px 0.8px at 67% 14%, rgba(255,255,255,0.6), transparent),
-    radial-gradient(0.8px 0.8px at 74% 4%, rgba(255,255,255,0.8), transparent),
-    radial-gradient(0.8px 0.8px at 82% 11%, rgba(255,255,255,0.5), transparent),
-    radial-gradient(0.8px 0.8px at 90% 7%, rgba(255,255,255,0.7), transparent),
-    radial-gradient(0.8px 0.8px at 96% 2%, rgba(255,255,255,0.6), transparent),
-    radial-gradient(0.8px 0.8px at 3% 20%, rgba(255,255,255,0.7), transparent),
-    radial-gradient(0.8px 0.8px at 9% 28%, rgba(255,255,255,0.5), transparent),
-    radial-gradient(0.8px 0.8px at 16% 22%, rgba(255,255,255,0.8), transparent),
-    radial-gradient(0.8px 0.8px at 23% 35%, rgba(255,255,255,0.6), transparent),
-    radial-gradient(0.8px 0.8px at 30% 25%, rgba(255,255,255,0.7), transparent),
-    radial-gradient(0.8px 0.8px at 37% 30%, rgba(255,255,255,0.5), transparent),
-    radial-gradient(0.8px 0.8px at 44% 18%, rgba(255,255,255,0.8), transparent),
-    radial-gradient(0.8px 0.8px at 50% 32%, rgba(255,255,255,0.6), transparent),
-    radial-gradient(0.8px 0.8px at 57% 24%, rgba(255,255,255,0.7), transparent),
-    radial-gradient(0.8px 0.8px at 64% 29%, rgba(255,255,255,0.5), transparent),
-    radial-gradient(0.8px 0.8px at 71% 21%, rgba(255,255,255,0.8), transparent),
-    radial-gradient(0.8px 0.8px at 78% 33%, rgba(255,255,255,0.6), transparent),
-    radial-gradient(0.8px 0.8px at 85% 19%, rgba(255,255,255,0.7), transparent),
-    radial-gradient(0.8px 0.8px at 93% 27%, rgba(255,255,255,0.5), transparent),
-    radial-gradient(0.8px 0.8px at 6% 42%, rgba(255,255,255,0.7), transparent),
-    radial-gradient(0.8px 0.8px at 13% 48%, rgba(255,255,255,0.6), transparent),
-    radial-gradient(0.8px 0.8px at 20% 40%, rgba(255,255,255,0.8), transparent),
-    radial-gradient(0.8px 0.8px at 27% 52%, rgba(255,255,255,0.5), transparent),
-    radial-gradient(0.8px 0.8px at 34% 45%, rgba(255,255,255,0.7), transparent),
-    radial-gradient(0.8px 0.8px at 41% 55%, rgba(255,255,255,0.6), transparent),
-    radial-gradient(0.8px 0.8px at 48% 43%, rgba(255,255,255,0.8), transparent),
-    radial-gradient(0.8px 0.8px at 55% 50%, rgba(255,255,255,0.5), transparent),
-    radial-gradient(0.8px 0.8px at 62% 38%, rgba(255,255,255,0.7), transparent),
-    radial-gradient(0.8px 0.8px at 69% 47%, rgba(255,255,255,0.6), transparent),
-    radial-gradient(0.8px 0.8px at 76% 44%, rgba(255,255,255,0.8), transparent),
-    radial-gradient(0.8px 0.8px at 83% 53%, rgba(255,255,255,0.5), transparent),
-    radial-gradient(0.8px 0.8px at 91% 41%, rgba(255,255,255,0.7), transparent),
-    radial-gradient(0.8px 0.8px at 97% 49%, rgba(255,255,255,0.6), transparent),
-    radial-gradient(0.8px 0.8px at 4% 63%, rgba(255,255,255,0.7), transparent),
-    radial-gradient(0.8px 0.8px at 11% 70%, rgba(255,255,255,0.5), transparent),
-    radial-gradient(0.8px 0.8px at 19% 65%, rgba(255,255,255,0.8), transparent),
-    radial-gradient(0.8px 0.8px at 26% 72%, rgba(255,255,255,0.6), transparent),
-    radial-gradient(0.8px 0.8px at 33% 60%, rgba(255,255,255,0.7), transparent),
-    radial-gradient(0.8px 0.8px at 40% 68%, rgba(255,255,255,0.5), transparent),
-    radial-gradient(0.8px 0.8px at 47% 75%, rgba(255,255,255,0.8), transparent),
-    radial-gradient(0.8px 0.8px at 54% 62%, rgba(255,255,255,0.6), transparent),
-    radial-gradient(0.8px 0.8px at 61% 71%, rgba(255,255,255,0.7), transparent),
-    radial-gradient(0.8px 0.8px at 68% 67%, rgba(255,255,255,0.5), transparent),
-    radial-gradient(0.8px 0.8px at 75% 73%, rgba(255,255,255,0.8), transparent),
-    radial-gradient(0.8px 0.8px at 82% 61%, rgba(255,255,255,0.6), transparent),
-    radial-gradient(0.8px 0.8px at 89% 69%, rgba(255,255,255,0.7), transparent),
-    radial-gradient(0.8px 0.8px at 95% 66%, rgba(255,255,255,0.5), transparent),
-    radial-gradient(0.8px 0.8px at 7% 82%, rgba(255,255,255,0.7), transparent),
-    radial-gradient(0.8px 0.8px at 14% 88%, rgba(255,255,255,0.6), transparent),
-    radial-gradient(0.8px 0.8px at 21% 85%, rgba(255,255,255,0.8), transparent),
-    radial-gradient(0.8px 0.8px at 28% 92%, rgba(255,255,255,0.5), transparent),
-    radial-gradient(0.8px 0.8px at 35% 80%, rgba(255,255,255,0.7), transparent),
-    radial-gradient(0.8px 0.8px at 42% 87%, rgba(255,255,255,0.6), transparent),
-    radial-gradient(0.8px 0.8px at 49% 93%, rgba(255,255,255,0.8), transparent),
-    radial-gradient(0.8px 0.8px at 56% 83%, rgba(255,255,255,0.5), transparent),
-    radial-gradient(0.8px 0.8px at 63% 90%, rgba(255,255,255,0.7), transparent),
-    radial-gradient(0.8px 0.8px at 70% 86%, rgba(255,255,255,0.6), transparent),
-    radial-gradient(0.8px 0.8px at 77% 94%, rgba(255,255,255,0.8), transparent),
-    radial-gradient(0.8px 0.8px at 84% 81%, rgba(255,255,255,0.5), transparent),
-    radial-gradient(0.8px 0.8px at 92% 88%, rgba(255,255,255,0.7), transparent),
-    radial-gradient(0.8px 0.8px at 98% 84%, rgba(255,255,255,0.6), transparent),
+    radial-gradient(0.8px 0.8px at 5% 3%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(0.8px 0.8px at 12% 8%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(0.8px 0.8px at 18% 2%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(0.8px 0.8px at 25% 15%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(0.8px 0.8px at 32% 5%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(0.8px 0.8px at 38% 12%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(0.8px 0.8px at 45% 3%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(0.8px 0.8px at 52% 9%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(0.8px 0.8px at 60% 6%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(0.8px 0.8px at 67% 14%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(0.8px 0.8px at 74% 4%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(0.8px 0.8px at 82% 11%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(0.8px 0.8px at 90% 7%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(0.8px 0.8px at 96% 2%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(0.8px 0.8px at 3% 20%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(0.8px 0.8px at 9% 28%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(0.8px 0.8px at 16% 22%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(0.8px 0.8px at 23% 35%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(0.8px 0.8px at 30% 25%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(0.8px 0.8px at 37% 30%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(0.8px 0.8px at 44% 18%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(0.8px 0.8px at 50% 32%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(0.8px 0.8px at 57% 24%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(0.8px 0.8px at 64% 29%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(0.8px 0.8px at 71% 21%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(0.8px 0.8px at 78% 33%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(0.8px 0.8px at 85% 19%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(0.8px 0.8px at 93% 27%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(0.8px 0.8px at 6% 42%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(0.8px 0.8px at 13% 48%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(0.8px 0.8px at 20% 40%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(0.8px 0.8px at 27% 52%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(0.8px 0.8px at 34% 45%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(0.8px 0.8px at 41% 55%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(0.8px 0.8px at 48% 43%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(0.8px 0.8px at 55% 50%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(0.8px 0.8px at 62% 38%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(0.8px 0.8px at 69% 47%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(0.8px 0.8px at 76% 44%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(0.8px 0.8px at 83% 53%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(0.8px 0.8px at 91% 41%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(0.8px 0.8px at 97% 49%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(0.8px 0.8px at 4% 63%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(0.8px 0.8px at 11% 70%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(0.8px 0.8px at 19% 65%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(0.8px 0.8px at 26% 72%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(0.8px 0.8px at 33% 60%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(0.8px 0.8px at 40% 68%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(0.8px 0.8px at 47% 75%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(0.8px 0.8px at 54% 62%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(0.8px 0.8px at 61% 71%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(0.8px 0.8px at 68% 67%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(0.8px 0.8px at 75% 73%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(0.8px 0.8px at 82% 61%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(0.8px 0.8px at 89% 69%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(0.8px 0.8px at 95% 66%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(0.8px 0.8px at 7% 82%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(0.8px 0.8px at 14% 88%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(0.8px 0.8px at 21% 85%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(0.8px 0.8px at 28% 92%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(0.8px 0.8px at 35% 80%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(0.8px 0.8px at 42% 87%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(0.8px 0.8px at 49% 93%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(0.8px 0.8px at 56% 83%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(0.8px 0.8px at 63% 90%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(0.8px 0.8px at 70% 86%, rgba(255, 255, 255, 0.6), transparent),
+    radial-gradient(0.8px 0.8px at 77% 94%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(0.8px 0.8px at 84% 81%, rgba(255, 255, 255, 0.5), transparent),
+    radial-gradient(0.8px 0.8px at 92% 88%, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(0.8px 0.8px at 98% 84%, rgba(255, 255, 255, 0.6), transparent),
     /* ── 중간 별 (1.2px) ── */
-    radial-gradient(1.2px 1.2px at 10% 5%, rgba(255,255,255,0.85), transparent),
-    radial-gradient(1.2px 1.2px at 35% 18%, rgba(255,255,255,0.8), transparent),
-    radial-gradient(1.2px 1.2px at 55% 8%, rgba(255,255,255,0.85), transparent),
-    radial-gradient(1.2px 1.2px at 78% 16%, rgba(255,255,255,0.8), transparent),
-    radial-gradient(1.2px 1.2px at 92% 3%, rgba(255,255,255,0.85), transparent),
-    radial-gradient(1.2px 1.2px at 2% 35%, rgba(255,255,255,0.8), transparent),
-    radial-gradient(1.2px 1.2px at 22% 42%, rgba(255,255,255,0.85), transparent),
-    radial-gradient(1.2px 1.2px at 48% 38%, rgba(255,255,255,0.8), transparent),
-    radial-gradient(1.2px 1.2px at 72% 31%, rgba(255,255,255,0.85), transparent),
-    radial-gradient(1.2px 1.2px at 88% 40%, rgba(255,255,255,0.8), transparent),
-    radial-gradient(1.2px 1.2px at 15% 58%, rgba(255,255,255,0.85), transparent),
-    radial-gradient(1.2px 1.2px at 40% 65%, rgba(255,255,255,0.8), transparent),
-    radial-gradient(1.2px 1.2px at 62% 55%, rgba(255,255,255,0.85), transparent),
-    radial-gradient(1.2px 1.2px at 85% 62%, rgba(255,255,255,0.8), transparent),
-    radial-gradient(1.2px 1.2px at 8% 78%, rgba(255,255,255,0.85), transparent),
-    radial-gradient(1.2px 1.2px at 30% 85%, rgba(255,255,255,0.8), transparent),
-    radial-gradient(1.2px 1.2px at 52% 80%, rgba(255,255,255,0.85), transparent),
-    radial-gradient(1.2px 1.2px at 74% 88%, rgba(255,255,255,0.8), transparent),
-    radial-gradient(1.2px 1.2px at 96% 78%, rgba(255,255,255,0.85), transparent),
-    /* ── 밝은 별 (1.8px, 색조 있음) ── */
-    radial-gradient(1.8px 1.8px at 20% 30%, rgba(200, 220, 255, 0.95), transparent),
-    radial-gradient(1.8px 1.8px at 65% 20%, rgba(255, 255, 255, 1.0), transparent),
-    radial-gradient(1.8px 1.8px at 45% 75%, rgba(255, 240, 200, 0.95), transparent),
-    radial-gradient(1.8px 1.8px at 80% 55%, rgba(255, 255, 255, 1.0), transparent),
-    radial-gradient(1.8px 1.8px at 10% 90%, rgba(200, 220, 255, 0.95), transparent),
-    radial-gradient(1.8px 1.8px at 58% 45%, rgba(255, 255, 255, 1.0), transparent),
-    radial-gradient(1.8px 1.8px at 3% 50%, rgba(220, 200, 255, 0.9), transparent),
-    radial-gradient(1.8px 1.8px at 87% 72%, rgba(255, 240, 200, 0.95), transparent);
+    radial-gradient(1.2px 1.2px at 10% 5%, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(1.2px 1.2px at 35% 18%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1.2px 1.2px at 55% 8%, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(1.2px 1.2px at 78% 16%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1.2px 1.2px at 92% 3%, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(1.2px 1.2px at 2% 35%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1.2px 1.2px at 22% 42%, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(1.2px 1.2px at 48% 38%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1.2px 1.2px at 72% 31%, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(1.2px 1.2px at 88% 40%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1.2px 1.2px at 15% 58%, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(1.2px 1.2px at 40% 65%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1.2px 1.2px at 62% 55%, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(1.2px 1.2px at 85% 62%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1.2px 1.2px at 8% 78%, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(1.2px 1.2px at 30% 85%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1.2px 1.2px at 52% 80%, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(1.2px 1.2px at 74% 88%, rgba(255, 255, 255, 0.8), transparent),
+    radial-gradient(1.2px 1.2px at 96% 78%, rgba(255, 255, 255, 0.85), transparent),
+    /* ── 밝은 별 (1.8px, 테마 변수) ── */
+    radial-gradient(1.8px 1.8px at 20% 30%, var(--star-a), transparent),
+    radial-gradient(1.8px 1.8px at 65% 20%, var(--star-b), transparent),
+    radial-gradient(1.8px 1.8px at 45% 75%, var(--star-c), transparent),
+    radial-gradient(1.8px 1.8px at 80% 55%, var(--star-d), transparent),
+    radial-gradient(1.8px 1.8px at 10% 90%, var(--star-e), transparent),
+    radial-gradient(1.8px 1.8px at 58% 45%, var(--star-f), transparent),
+    radial-gradient(1.8px 1.8px at 3% 50%, var(--star-g), transparent),
+    radial-gradient(1.8px 1.8px at 87% 72%, var(--star-h), transparent);
   background-attachment: fixed;
   background-size: 100% 100%;
   color: var(--color-text-default);
@@ -222,7 +421,7 @@ body {
   min-height: 100vh;
   height: 100vh;
   margin: 0 auto;
-  background-color: rgba(2, 8, 16, 0.55);
+  background-color: var(--bg-app);
   /* 앱 배경 - 반투명으로 별빛 투과 */
   position: relative;
   overflow: hidden;
@@ -548,7 +747,7 @@ body.thread-open .chat-layout {
     0 2px 8px rgba(0, 0, 0, 0.3);
   z-index: 10;
   border-radius: 3px;
-  border: 1px solid rgba(74, 143, 212, 0.3);
+  border: 1px solid rgba(200, 137, 42, 0.3);
 }
 
 .tape::before {
@@ -1225,10 +1424,10 @@ router-view {
 .sidebar-content {
   position: relative;
   height: 100%;
-  background: #0a1422;
+  background: #0d0802;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  border-right: 1px solid rgba(74, 143, 212, 0.15);
+  border-right: 1px solid rgba(200, 137, 42, 0.15);
   box-shadow: 4px 0 24px rgba(0, 0, 0, 0.4);
   transition: width 0.3s ease;
   display: flex;
@@ -1439,7 +1638,7 @@ router-view {
 .chat-title {
   font-size: 14px;
   color: rgba(180, 220, 255, 0.9);
-  text-shadow: 0 0 12px rgba(74, 180, 255, 0.4);
+  text-shadow: 0 0 12px rgba(220, 160, 50, 0.4);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1603,7 +1802,7 @@ router-view {
 
 .sidebar-footer {
   padding: 16px;
-  border-top: 1px solid rgba(74, 143, 212, 0.15);
+  border-top: 1px solid rgba(200, 137, 42, 0.15);
 }
 
 .sidebar-footer p {
@@ -1634,8 +1833,8 @@ router-view {
 }
 
 .logout-popup {
-  background: #0f1e30;
-  border: 1px solid rgba(74, 143, 212, 0.25);
+  background: #15100a;
+  border: 1px solid rgba(200, 137, 42, 0.25);
   border-radius: 16px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
   min-width: 320px;
@@ -1659,7 +1858,7 @@ router-view {
 
 .popup-header {
   padding: 20px 20px 10px 20px;
-  border-bottom: 1px solid rgba(74, 143, 212, 0.15);
+  border-bottom: 1px solid rgba(200, 137, 42, 0.15);
 }
 
 .popup-header h3 {
@@ -1685,7 +1884,7 @@ router-view {
   display: flex;
   gap: 12px;
   justify-content: flex-end;
-  border-top: 1px solid rgba(74, 143, 212, 0.15);
+  border-top: 1px solid rgba(200, 137, 42, 0.15);
 }
 
 .cancel-button,
@@ -1701,13 +1900,13 @@ router-view {
 }
 
 .cancel-button {
-  background: rgba(74, 143, 212, 0.1);
+  background: rgba(200, 137, 42, 0.1);
   color: var(--color-text-default);
-  border: 1px solid rgba(74, 143, 212, 0.2);
+  border: 1px solid rgba(200, 137, 42, 0.2);
 }
 
 .cancel-button:hover {
-  background: rgba(74, 143, 212, 0.18);
+  background: rgba(200, 137, 42, 0.18);
 }
 
 .confirm-button {
@@ -1735,22 +1934,20 @@ router-view {
   width: 100%;
   max-width: 480px;
   padding: 12px 20px 24px;
-  background-color: #040e1a;
+  background-color: var(--hud-bg);
   background-image:
-    repeating-linear-gradient(
-      0deg,
-      rgba(74, 180, 255, 0.07) 0px,
-      rgba(74, 180, 255, 0.07) 1px,
+    repeating-linear-gradient(0deg,
+      var(--hud-scanline) 0px,
+      var(--hud-scanline) 1px,
       transparent 1px,
-      transparent 4px
-    ),
-    linear-gradient(0deg, #04101e 0%, #0e2340 100%);
-  border-top: 2px solid rgba(74, 200, 255, 0.7);
+      transparent 4px),
+    linear-gradient(0deg, var(--hud-gradient-bottom) 0%, var(--hud-gradient-top) 100%);
+  border-top: 2px solid var(--hud-border);
   box-shadow:
-    0 -2px 0 rgba(74, 200, 255, 0.2),
-    0 -4px 24px rgba(74, 180, 255, 0.15),
+    0 -2px 0 var(--hud-glow),
+    0 -4px 24px var(--hud-glow),
     0 -8px 40px rgba(0, 0, 0, 0.7),
-    inset 0 -1px 0 rgba(74, 200, 255, 0.2);
+    inset 0 -1px 0 var(--hud-glow);
   z-index: 900;
   pointer-events: all;
   box-sizing: border-box;
@@ -1764,9 +1961,9 @@ router-view {
   top: -2px;
   width: 28px;
   height: 20px;
-  border-color: rgba(74, 220, 255, 0.9);
+  border-color: var(--hud-bracket);
   border-style: solid;
-  filter: drop-shadow(0 0 4px rgba(74, 200, 255, 0.8));
+  filter: drop-shadow(0 0 4px var(--hud-border));
 }
 
 .chat-input-container::before {
@@ -1782,10 +1979,10 @@ router-view {
 .chat-input-wrapper {
   width: 100%;
   pointer-events: all;
-  background: rgba(10, 22, 40, 0.85);
+  background: rgba(20, 15, 10, 0.85);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  border: 1px solid rgba(74, 180, 255, 0.3);
+  border: 1px solid rgba(210, 150, 40, 0.3);
   border-radius: 28px;
   padding: 12px 16px;
   box-shadow:
@@ -1802,7 +1999,7 @@ router-view {
 }
 
 .chat-input-wrapper.has-preview {
-  padding-top: 96px;
+  padding-top: 100px;
 }
 
 .chat-input-wrapper::before {
@@ -1821,10 +2018,10 @@ router-view {
 }
 
 .chat-input-wrapper.focused {
-  border-color: rgba(74, 200, 255, 0.6);
+  border-color: rgba(230, 170, 50, 0.6);
   box-shadow:
-    0 0 0 1px rgba(74, 200, 255, 0.1),
-    0 0 16px rgba(74, 200, 255, 0.12),
+    0 0 0 1px rgba(220, 160, 40, 0.1),
+    0 0 16px rgba(220, 160, 40, 0.12),
     0 8px 32px rgba(0, 0, 0, 0.3);
 }
 
@@ -1847,37 +2044,31 @@ router-view {
   position: absolute;
   top: 12px;
   left: 16px;
-  right: 16px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 12px;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.25);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.chat-preview-image-wrapper {
+  position: relative;
+  display: inline-block;
 }
 
 .chat-preview-thumb {
-  width: 60px;
-  height: 60px;
-  border-radius: 16px;
+  width: 72px;
+  height: 72px;
+  border-radius: 12px;
   object-fit: cover;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
-}
-
-.chat-preview-text {
-  flex: 1;
-  color: var(--color-text-subtle);
-  font-size: 13px;
+  display: block;
 }
 
 .chat-preview-remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
   border: none;
-  background: rgba(0, 0, 0, 0.2);
-  color: var(--color-white);
-  width: 32px;
-  height: 32px;
-  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -1885,8 +2076,12 @@ router-view {
   transition: background 0.2s ease;
 }
 
+.chat-preview-remove .material-symbols-outlined {
+  font-size: 14px;
+}
+
 .chat-preview-remove:hover {
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.85);
 }
 
 .chat-input-form {
@@ -2136,7 +2331,7 @@ router-view {
   position: absolute;
   top: -8px;
   right: 16px;
-  background: rgba(74, 143, 212, 0.12);
+  background: rgba(200, 137, 42, 0.12);
   color: var(--color-text-subtle);
   font-size: 10px;
   padding: 2px 6px;
@@ -2495,7 +2690,20 @@ router-view {
     padding: 10px 0;
     /* 모바일에서 패딩 조정 */
     max-height: 100px;
-    /* 모바일에서 최대 높이 축소 */
+  }
+
+  .chat-input-left {
+    width: 30px;
+    height: 30px;
+  }
+
+  .chat-upload-button {
+    width: 30px;
+    height: 30px;
+  }
+
+  .chat-upload-button .material-symbols-outlined {
+    font-size: 18px;
   }
 
   .chat-send-button,
@@ -2617,8 +2825,8 @@ router-view {
 
 /* 글래스모피즘 버블 공통 스타일 */
 .glass-bubble {
-  background: #131f30;
-  border: 1px solid rgba(74, 143, 212, 0.2);
+  background: #17100a;
+  border: 1px solid rgba(200, 137, 42, 0.2);
   border-radius: 20px;
   padding: 10px 16px;
   max-width: 100%;
@@ -2632,7 +2840,7 @@ router-view {
 /* 사용자 버블 스타일 */
 .user-bubble {
   align-self: flex-end;
-  background: #1e4f96;
+  background: #7a4a12;
   border: none;
   border-radius: 20px 20px 4px 20px;
 }
@@ -2648,8 +2856,8 @@ router-view {
 /* AI 버블 스타일 */
 .ai-bubble {
   align-self: flex-start;
-  background: #131f30;
-  border: 1px solid rgba(74, 143, 212, 0.2);
+  background: #17100a;
+  border: 1px solid rgba(200, 137, 42, 0.2);
   border-radius: 20px 20px 20px 4px;
 }
 
@@ -2660,7 +2868,7 @@ router-view {
 /* 일기 버블 스타일 - 사용자 버블과 동일하게 */
 .diary-bubble {
   align-self: flex-end;
-  background: #1e4f96;
+  background: #7a4a12;
   border: none;
   border-radius: 20px 20px 4px 20px;
 }
@@ -2696,7 +2904,7 @@ router-view {
 /* ==================== 검색 결과 액션 버블 ==================== */
 .action-bubble {
   align-self: flex-start;
-  background: #131f30;
+  background: #17100a;
   border: 1px solid rgba(200, 137, 42, 0.3);
   max-width: 90%;
 }
@@ -2723,12 +2931,12 @@ router-view {
 }
 
 .photo-cards-container::-webkit-scrollbar-track {
-  background: rgba(74, 143, 212, 0.05);
+  background: rgba(200, 137, 42, 0.05);
   border-radius: 3px;
 }
 
 .photo-cards-container::-webkit-scrollbar-thumb {
-  background: rgba(74, 143, 212, 0.25);
+  background: rgba(200, 137, 42, 0.25);
   border-radius: 3px;
 }
 
@@ -2739,7 +2947,7 @@ router-view {
   width: 160px;
   border-radius: 12px;
   overflow: hidden;
-  background: #0f1e30;
+  background: #15100a;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   cursor: pointer;
@@ -2761,8 +2969,8 @@ router-view {
   padding: 6px 10px;
   font-size: 12px;
   color: #8b9db8;
-  background: #0f1e30;
-  border-bottom: 1px solid rgba(74, 143, 212, 0.1);
+  background: #15100a;
+  border-bottom: 1px solid rgba(200, 137, 42, 0.1);
 }
 
 .photo-card-desc {
@@ -2770,7 +2978,7 @@ router-view {
   font-size: 13px;
   color: #dde4f0;
   line-height: 1.3;
-  background: #0f1e30;
+  background: #15100a;
 }
 
 /* 검색 결과 — 버블 밖에 독립 배치 (RN 앱과 동일) */
@@ -2784,7 +2992,7 @@ router-view {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  background: #0f1e30;
+  background: #15100a;
 }
 
 .photo-card-meta-row {
@@ -2795,7 +3003,7 @@ router-view {
 
 .photo-meta-icon {
   font-size: 12px;
-  color: #4a8fd4;
+  color: #c8892a;
   flex-shrink: 0;
 }
 
@@ -2824,7 +3032,7 @@ router-view {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #4a8fd4;
+  background: #c8892a;
   margin-top: 7px;
   flex-shrink: 0;
 }
@@ -2838,7 +3046,7 @@ router-view {
 
 .memo-date {
   font-size: 12px;
-  color: #4a8fd4;
+  color: #c8892a;
   font-weight: 500;
 }
 
@@ -2852,10 +3060,10 @@ router-view {
 .action-btn.thread-btn {
   align-self: flex-start;
   padding: 8px 16px;
-  background: rgba(74, 143, 212, 0.12);
-  border: 1px solid rgba(74, 143, 212, 0.3);
+  background: rgba(200, 137, 42, 0.12);
+  border: 1px solid rgba(200, 137, 42, 0.3);
   border-radius: 20px;
-  color: #4a8fd4;
+  color: #c8892a;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -2863,8 +3071,8 @@ router-view {
 }
 
 .action-btn.thread-btn:hover {
-  background: rgba(74, 143, 212, 0.22);
-  border-color: rgba(74, 143, 212, 0.5);
+  background: rgba(200, 137, 42, 0.22);
+  border-color: rgba(200, 137, 42, 0.5);
   transform: translateY(-1px);
 }
 
@@ -2923,22 +3131,20 @@ router-view {
   align-items: center;
   padding: 0 16px;
   position: relative;
-  background-color: #040e1a;
+  background-color: var(--hud-bg);
   background-image:
-    repeating-linear-gradient(
-      0deg,
-      rgba(74, 180, 255, 0.07) 0px,
-      rgba(74, 180, 255, 0.07) 1px,
+    repeating-linear-gradient(0deg,
+      var(--hud-scanline) 0px,
+      var(--hud-scanline) 1px,
       transparent 1px,
-      transparent 4px
-    ),
-    linear-gradient(180deg, #0e2340 0%, #04101e 100%);
-  border-bottom: 2px solid rgba(74, 200, 255, 0.7);
+      transparent 4px),
+    linear-gradient(180deg, var(--hud-gradient-top) 0%, var(--hud-gradient-bottom) 100%);
+  border-bottom: 2px solid var(--hud-border);
   box-shadow:
-    0 2px 0 rgba(74, 200, 255, 0.2),
-    0 4px 24px rgba(74, 180, 255, 0.15),
+    0 2px 0 var(--hud-glow),
+    0 4px 24px var(--hud-glow),
     0 8px 40px rgba(0, 0, 0, 0.7),
-    inset 0 1px 0 rgba(74, 200, 255, 0.2);
+    inset 0 1px 0 var(--hud-glow);
   z-index: 950;
   box-sizing: border-box;
 }
@@ -2951,9 +3157,9 @@ router-view {
   bottom: -2px;
   width: 28px;
   height: 20px;
-  border-color: rgba(74, 220, 255, 0.9);
+  border-color: var(--hud-bracket);
   border-style: solid;
-  filter: drop-shadow(0 0 4px rgba(74, 200, 255, 0.8));
+  filter: drop-shadow(0 0 4px var(--hud-border));
 }
 
 .mobile-header::before {
@@ -2974,6 +3180,34 @@ router-view {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* 테마 토글 버튼 */
+.theme-toggle-btn {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid var(--hud-border);
+  border-radius: 20px;
+  padding: 4px 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  color: var(--color-text-default);
+  transition: all 0.2s ease;
+  opacity: 0.8;
+}
+
+.theme-toggle-btn:hover {
+  opacity: 1;
+  background: var(--hud-glow);
+  box-shadow: 0 0 10px var(--hud-border);
+}
+
+.theme-toggle-btn .theme-icon {
+  font-size: 15px;
+  line-height: 1;
 }
 
 .mobile-header .hamburger-icon {
@@ -5061,6 +5295,7 @@ router-view {
     opacity: 0;
     transform: translateX(100%);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -5189,13 +5424,11 @@ router-view {
 .date-separator-line {
   flex: 1;
   height: 1px;
-  background: linear-gradient(
-    to right,
-    transparent,
-    rgba(74, 143, 212, 0.25) 20%,
-    rgba(74, 143, 212, 0.25) 80%,
-    transparent
-  );
+  background: linear-gradient(to right,
+      transparent,
+      rgba(200, 137, 42, 0.25) 20%,
+      rgba(200, 137, 42, 0.25) 80%,
+      transparent);
 }
 
 .date-separator-text {
@@ -5204,8 +5437,8 @@ router-view {
   color: rgba(139, 157, 184, 0.9);
   white-space: nowrap;
   padding: 4px 12px;
-  background: rgba(74, 143, 212, 0.08);
-  border: 1px solid rgba(74, 143, 212, 0.15);
+  background: rgba(200, 137, 42, 0.08);
+  border: 1px solid rgba(200, 137, 42, 0.15);
   border-radius: 12px;
 }
 
@@ -5256,11 +5489,14 @@ router-view {
 }
 
 @keyframes loading-bounce {
-  0%, 80%, 100% {
+
+  0%,
+  80%,
+  100% {
     transform: scale(0);
   }
+
   40% {
     transform: scale(1.0);
   }
 }
-

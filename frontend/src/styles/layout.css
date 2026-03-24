@@ -22,8 +22,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 var(--spacing-lg);
-  background: #0a1422;
-  border-bottom: 1px solid rgba(74, 143, 212, 0.15);
+  background: var(--hud-bg);
+  border-bottom: 1px solid var(--hud-border);
   z-index: var(--z-header);
 }
 
@@ -106,8 +106,8 @@
   width: 100%;
   max-width: var(--app-max-width);
   min-height: var(--footer-height);
-  background: #0a1422;
-  border-top: 1px solid rgba(74, 143, 212, 0.15);
+  background: var(--hud-bg);
+  border-top: 1px solid var(--hud-border);
   padding: var(--spacing-md) var(--spacing-xl);
   z-index: var(--z-footer);
   box-shadow: 0 -2px 20px rgba(0, 0, 0, 0.3);

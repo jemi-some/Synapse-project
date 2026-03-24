@@ -390,8 +390,7 @@ export default class ChatInput extends Component {
 
       // Case A: 사진 업로드 + 텍스트 (옵션)
       if (fileToUpload) {
-        // [1] 사용자 메시지로 사진과 텍스트 표시
-        const uploadMessageContent = textMessage ? `[사진 첨부] ${textMessage}` : '[사진 첨부]'
+        // [1] 사용자 메시지로 사진과 텍스트 표시 (로컬 프리뷰)
         if (chatBubbles) {
           const bubbleOptions = {}
           if (previewToRevoke) {
@@ -399,12 +398,6 @@ export default class ChatInput extends Component {
             bubbleOptions.metadata = { isLocalPreview: true }
           }
           userMessageId = chatBubbles.showUserMessage(textMessage || '', bubbleOptions)
-          // showLoadingBubble() 제거: 메타데이터 응답이 즉시 표시됨
-        }
-
-        const { error: userMessageError } = await addMessage(chatSessionId, uploadMessageContent, 'text', 'user')
-        if (userMessageError) {
-          console.warn('사용자 메시지 저장 실패:', userMessageError)
         }
 
         // [2] 메타데이터 추출
@@ -424,7 +417,7 @@ export default class ChatInput extends Component {
           mime_type: uploadData.type,
           selected_metadata: metadata,
           chat_session_id: chatSessionId,
-          user_text: textMessage // 사용자가 입력한 텍스트도 같이 저장
+          user_text: textMessage
         }
         const { data: memoryData, error: memoryError } = await saveMemory(memoryPayload)
 
@@ -433,6 +426,12 @@ export default class ChatInput extends Component {
         }
 
         const memoryId = memoryData ? memoryData.id : null
+
+        // [5] chat_messages에 사진 메시지 저장 (memories 저장 후 memory_id 포함)
+        const { error: userMessageError } = await addMessage(chatSessionId, textMessage || '', 'image', 'user', null, memoryId)
+        if (userMessageError) {
+          console.warn('사용자 메시지 저장 실패:', userMessageError)
+        }
 
         if (userMessageId && chatBubbles && typeof chatBubbles.updateMessage === 'function') {
           const metadataUpdates = {
@@ -458,13 +457,10 @@ export default class ChatInput extends Component {
                 hour: '2-digit',
                 minute: '2-digit'
               })
-            : '시간 정보 없음'
+            : ''
 
-          // 메타데이터 기반 즉시 응답 (로딩 없이 바로 표시)
-          const simpleResponse = `📍 ${locationText}\n🕒 ${dateText}`
-
-          chatBubbles.showAIMessage(simpleResponse)
-          await addMessage(chatSessionId, simpleResponse, 'text', 'assistant')
+          chatBubbles.showPhotoUploadResult(dateText, locationText)
+          await addMessage(chatSessionId, '', 'text', 'assistant', null, memoryId)
         }
 
         // [6] 백엔드 벡터화 파이프라인은 백그라운드에서 실행 (await 없음)
@@ -833,13 +829,12 @@ export default class ChatInput extends Component {
 
     const previewHtml = attachedFilePreview ? `
       <div class="chat-input-preview">
-        <img src="${attachedFilePreview}" alt="첨부 이미지 미리보기" class="chat-preview-thumb" />
-        <div class="chat-preview-text">
-          <span>이미지 1장을 첨부했어요</span>
+        <div class="chat-preview-image-wrapper">
+          <img src="${attachedFilePreview}" alt="첨부 이미지 미리보기" class="chat-preview-thumb" />
+          <button type="button" class="chat-preview-remove" aria-label="첨부 이미지 제거">
+            <span class="material-symbols-outlined">close</span>
+          </button>
         </div>
-        <button type="button" class="chat-preview-remove" aria-label="첨부 이미지 제거">
-          <span class="material-symbols-outlined">close</span>
-        </button>
       </div>
     ` : ''
 
