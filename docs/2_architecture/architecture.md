@@ -4,25 +4,28 @@
 
 ```mermaid
 flowchart TB
-    subgraph Frontend["🖥️ Frontend (Vanilla JS + Parcel)"]
-        UI[ChatInput / ChatBubbles / ThreadPanel / Library]
-        Router[Custom Router]
-        Components[Component System]
+    subgraph Vercel["☁️ Vercel"]
+        subgraph Frontend["🖥️ Frontend (Vanilla JS + Vite)"]
+            UI[ChatInput / ChatBubbles / Sidebar / MobileHeader]
+            Components[Component System]
+        end
     end
 
-    subgraph Backend["⚙️ Backend (FastAPI + Python 3.11)"]
-        API[REST API Endpoints]
+    subgraph CloudRun["🚀 Google Cloud Run (asia-northeast3)"]
+        subgraph Backend["⚙️ Backend (FastAPI + Python 3.11)"]
+            API[REST API Endpoints]
 
-        subgraph Router["🤖 Agent Router (OpenAI Tool Calling)"]
-            SearchTool[search_memories]
-            SaveTool[save_memo]
-            ChatTool[chat]
-        end
+            subgraph AgentRouter["🤖 Agent Router (OpenAI Tool Calling)"]
+                SearchTool[search_memories]
+                SaveTool[save_memo]
+                ChatTool[chat]
+            end
 
-        subgraph Pipeline["🔄 Vectorization Pipeline"]
-            Vision[Vision API<br/>Image Analysis]
-            Context[Context Generator<br/>Summary Creation]
-            Embedding[text-embedding-3-small<br/>1536-dim Vector]
+            subgraph Pipeline["🔄 Vectorization Pipeline"]
+                Vision[Vision API<br/>Image Analysis]
+                Context[Context Generator<br/>Summary Creation]
+                Embedding[text-embedding-3-small<br/>1536-dim Vector]
+            end
         end
     end
 
@@ -30,18 +33,18 @@ flowchart TB
         Memories[(memories<br/>embedding vector)]
         Messages[(chat_messages<br/>action_data JSONB)]
         Sessions[(chat_sessions)]
-
         VectorSearch[match_memories<br/>Cosine Similarity]
     end
 
     subgraph External["☁️ External Services"]
         OpenAI[OpenAI API<br/>GPT-4o / GPT-4o-mini]
         Storage[Supabase Storage<br/>Image CDN]
+        LangSmith[LangSmith<br/>Tracing & Observability]
     end
 
     UI --> API
-    API --> Router
-    Router --> SearchTool & SaveTool & ChatTool
+    API --> AgentRouter
+    AgentRouter --> SearchTool & SaveTool & ChatTool
 
     SearchTool --> VectorSearch
     SaveTool --> Messages
@@ -53,6 +56,7 @@ flowchart TB
     Vision -.-> OpenAI
     Context -.-> OpenAI
     Embedding -.-> OpenAI
+    Backend -.-> LangSmith
 
     VectorSearch --> Memories
     Memories --> Sessions
@@ -60,11 +64,13 @@ flowchart TB
 
     UI -.Upload.-> Storage
 
+    style Vercel fill:#e8f0ff
+    style CloudRun fill:#e8f5e9
     style Frontend fill:#e1f5ff
     style Backend fill:#fff4e1
     style Database fill:#e8f5e9
     style External fill:#f3e5f5
-    style Router fill:#fff9c4
+    style AgentRouter fill:#fff9c4
     style Pipeline fill:#ffe0b2
 ```
 
@@ -128,12 +134,15 @@ flowchart TB
 | Layer | Technology | Purpose |
 |-------|-----------|---------|
 | **Frontend** | Vanilla JS | SPA 구현 (커스텀 프레임워크) |
-| | Parcel 2 | 번들러 |
+| | Vite | 번들러 |
 | | exifr | EXIF 메타데이터 추출 |
+| **Infra** | Vercel | 프론트엔드 배포 |
+| | Google Cloud Run | 백엔드 배포 (Scale to zero) |
 | **Backend** | FastAPI | 비동기 REST API |
 | | OpenAI GPT-4o | Vision API (이미지 분석) |
 | | OpenAI GPT-4o-mini | LLM 기반 Agent Tool Calling |
 | | text-embedding-3-small | 1536-dim 벡터 생성 |
+| | LangSmith | LLM 트레이싱 및 observability |
 | **Database** | PostgreSQL | 관계형 데이터베이스 |
 | | pgvector | 벡터 유사도 검색 |
 | | Supabase | Auth + Storage + Realtime |
