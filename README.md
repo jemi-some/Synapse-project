@@ -37,6 +37,9 @@
 
 ## 데모
 
+🔗 **[라이브 데모 보기](https://synapse-project-five.vercel.app)**
+- Google 계정으로 로그인하거나 **데모 계정으로 체험** 가능
+
 ### 주요 기능 시연
 
 **1. 이미지 업로드 → 자동 분석 및 벡터화**
@@ -63,19 +66,21 @@ AI: "기록했습니다. 어떤 일이 있었는지 더 이야기해볼까요?"
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                        Frontend (Vanilla JS)                │
-│  ┌───────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────┐  │
-│  │ ChatInput │ │ ChatBubbles │ │ ThreadPanel │ │ Library │  │
-│  └───────────┘ └─────────────┘ └─────────────┘ └─────────┘  │
+│              Frontend (Vanilla JS + Vite)                   │
+│         Vercel (https://synapse-project-five.vercel.app)    │
+│  ┌───────────┐ ┌─────────────┐ ┌─────────┐ ┌────────────┐  │
+│  │ ChatInput │ │ ChatBubbles │ │ Sidebar │ │MobileHeader│  │
+│  └───────────┘ └─────────────┘ └─────────┘ └────────────┘  │
 └────────────────────────────┬────────────────────────────────┘
                              │ REST API
 ┌────────────────────────────┴────────────────────────────────┐
-│                   Backend (FastAPI + Python)                │
+│            Backend (FastAPI + Python)                       │
+│              Google Cloud Run (asia-northeast3)             │
 │  ┌──────────────────────────────────────────────────────┐   │
 │  │        Agent Router (OpenAI Tool Calling)            │   │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌───────────┐   │   │
-│  │  │search_memories│ │  save_memo   │  │   chat    │   │   │
-│  │  └──────────────┘  └──────────────┘  └───────────┘   │   │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌───────────┐  │   │
+│  │  │search_memories│ │  save_memo   │  │   chat    │  │   │
+│  │  └──────────────┘  └──────────────┘  └───────────┘  │   │
 │  └──────────────────────────────────────────────────────┘   │
 │  ┌──────────────────────────────────────────────────────┐   │
 │  │           Vectorization Pipeline                     │   │
@@ -100,13 +105,14 @@ AI: "기록했습니다. 어떤 일이 있었는지 더 이야기해볼까요?"
 
 **Frontend Layer**
 - Vanilla JS SPA (커스텀 컴포넌트 시스템)
-- ChatInput, ChatBubbles, ThreadPanel, Library 컴포넌트
-- Parcel 2 번들러
+- ChatInput, ChatBubbles, Sidebar, MobileHeader 컴포넌트
+- Vite 번들러, Vercel 배포
 
 **Backend Layer**
 - FastAPI 비동기 REST API
 - Agent Tool Calling Router (OpenAI)
 - Vectorization Pipeline (Vision → Context → Embedding)
+- Google Cloud Run 배포 (asia-northeast3, Scale to zero)
 
 **Database Layer**
 - PostgreSQL + pgvector (벡터 검색)
@@ -131,7 +137,7 @@ AI: "기록했습니다. 어떤 일이 있었는지 더 이야기해볼까요?"
 | 기술 | 역할 | 핵심 구현 내용 |
 |------|------|------|
 | **Vanilla JS** | 클라이언트 사이드 렌더링 | SPA 아키텍처 및 커스텀 컴포넌트/라우터 구현 |
-| **Parcel 2** | 모듈 번들러 | 빠르고 최적화된 빌드 및 개발 환경 구축 |
+| **Vite** | 모듈 번들러 | 빠른 HMR 및 최적화된 프로덕션 빌드 |
 | **exifr** | 메타데이터 파서 | 이미지 파일 내장 메타데이터(GPS, 시간 등) 정보 추출 |
 | **browser-image-compression** | 클라이언트 리소스 최적화 | 이미지 업로드 전 클라이언트 단에서 이미지 압축 |
 
@@ -185,7 +191,7 @@ async def search_memories(query: str, user_id: str):
     # 2. pgvector로 코사인 유사도 검색
     results = await supabase.rpc('match_memories', {
         'query_embedding': query_embedding,
-        'match_threshold': 0.7,
+        'match_threshold': 0.3,
         'match_count': 10,
         'filter_user_id': user_id
     })
@@ -332,7 +338,8 @@ Project_Synapse/
 │   │   ├── routers/           # /vectorize, /message, /thread 등 라우터 계층
 │   │   ├── services/          # 비즈니스 로직 (Vision, Embedding, Agent Tool Calling)
 │   │   └── schemas/           # Pydantic 기반 Request/Response 데이터 검증 모델
-│   └── requirements.txt
+│   ├── pyproject.toml
+│   └── Dockerfile
 │
 ├── frontend/                  # Vanilla JS 기반 SPA 프론트엔드
 │   ├── src/
@@ -356,6 +363,7 @@ Project_Synapse/
 - [OpenAI API](https://openai.com/api/): GPT-4o 멀티모달 추론 및 Embedding 모델
 - [Supabase](https://supabase.com/): 확장성 높은 PostgreSQL 및 pgvector 통합 환경
 - [FastAPI](https://fastapi.tiangolo.com/): 고성능 비동기 Python 웹 프레임워크
+- [Vite](https://vitejs.dev/): 차세대 프론트엔드 빌드 툴
 - [exifr](https://github.com/MikeKovarik/exifr): 빠르고 신뢰성 높은 브라우저 기반 EXIF 파서
 
 ---
