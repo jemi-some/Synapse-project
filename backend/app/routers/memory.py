@@ -1,12 +1,13 @@
 """
 AI API 라우터
 
-Phase 1-A:
-- POST /api/ai/vectorize  — 사진 벡터화 파이프라인 (Vision → 요약 → 임베딩 → DB 저장)
+Logic 1: POST /api/ai/vectorize  — 사진 벡터화 파이프라인 (Vision → combined_text → 임베딩 → DB)
+Logic 2: POST /api/ai/record     — 메인 피드 텍스트 기록 (MVP Phase A: LLM 없이 저장만)
+Logic 3: POST /api/ai/search     — 검색창 직접 호출 (LLM 없음, pgvector 유사도 검색)
+         POST /api/ai/thread     — 스레드 내 멀티턴 대화
 
-Phase 1-B:
-- POST /api/ai/message    — 메인 피드 텍스트 입력 (MCP 라우팅)
-- POST /api/ai/thread     — 스레드 내 멀티턴 대화
+V1에서 제거된 엔드포인트:
+  POST /api/ai/message  — V1 MCP Tool Calling 라우터 (Logic 2 V1). /api/ai/record로 대체.
 """
 
 import logging
@@ -15,14 +16,14 @@ from fastapi import APIRouter, HTTPException
 
 from app.schemas.memory import (
     VectorizeRequest, VectorizeResponse,
-    MessageRequest, MessageResponse, ActionResult,
+    RecordRequest, RecordResponse,
+    SearchRequest, SearchResponse, SearchResultItem,
     ThreadRequest, ThreadResponse,
 )
-from app.services.openai_service import (
-    analyze_and_vectorize,
-    route_message,
-    thread_conversation,
-)
+from app.services.vectorize_service import run_vectorize_pipeline
+from app.services.record_service import save_record
+from app.services.search_service import search_memories_by_query
+from app.services.openai_service import thread_conversation
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,7 @@ router = APIRouter(prefix="/api/ai", tags=["AI"])
 
 
 # ============================================================
-# Phase 1-A: 사진 벡터화 파이프라인
+# Logic 1: 사진 벡터화 파이프라인
 # ============================================================
 
 @router.post("/vectorize", response_model=VectorizeResponse)
@@ -40,13 +41,16 @@ async def vectorize_endpoint(req: VectorizeRequest):
 
     프론트엔드 호출 순서:
       1. 프론트가 Supabase Storage에 사진 업로드
-      2. 프론트가 memories 테이블에 INSERT (file_url, metadata 등)
+      2. 프론트가 memories 테이블에 INSERT (user_text 등)
       3. 프론트가 이 엔드포인트 호출 (memoryId + imageUrl + metadata)
-      4. 백엔드가 Vision 분석 → 요약 → 임베딩 → DB UPDATE 수행
+      4. 백엔드가 Vision 분석 → combined_text 조합 → 임베딩 → DB 저장 수행
       5. 프론트에 성공 여부 반환
+
+    V1과의 차이:
+      - 응답 필드: visionTags/contextSummary → imageCaption/imageTags/combinedText
     """
     try:
-        result = await analyze_and_vectorize(
+        result = await run_vectorize_pipeline(
             image_url=req.imageUrl,
             metadata=req.metadata,
             memory_id=req.memoryId,
@@ -54,8 +58,9 @@ async def vectorize_endpoint(req: VectorizeRequest):
         )
         return VectorizeResponse(
             success=True,
-            visionTags=result["vision_tags"],
-            contextSummary=result["context_summary"],
+            imageCaption=result["image_caption"],
+            imageTags=result["image_tags"],
+            combinedText=result["combined_text"],
             embeddingDimensions=result["embedding_dimensions"],
         )
     except Exception as e:
@@ -64,45 +69,80 @@ async def vectorize_endpoint(req: VectorizeRequest):
 
 
 # ============================================================
-# Phase 1-B: MCP 채팅 라우팅
+# Logic 2: 메인 피드 텍스트 기록 (MVP Phase A)
 # ============================================================
 
-@router.post("/message", response_model=MessageResponse)
-async def message_endpoint(req: MessageRequest):
+@router.post("/record", response_model=RecordResponse)
+async def record_endpoint(req: RecordRequest):
     """
-    텍스트 메시지를 MCP 라우팅으로 처리합니다.
+    텍스트 기록을 저장합니다. (V2 MVP Phase A)
 
-    LLM이 사용자 의도를 판단하여:
-      - 검색 → search_memories 도구 호출 → 유사한 기억 반환
-      - 메모 → save_memo 도구 호출 → memories 테이블에 저장
-      - 잡담 → 도구 없이 직접 응답
-      - 위 조합 → 여러 도구 동시 호출 가능
+    Phase A: LLM 호출 없이 저장만.
+      1. combined_embedding 생성 (user_text 그대로 임베딩)
+      2. memories INSERT
+      3. chat_messages INSERT (raw_input + memory_card)
+
+    Phase B 이후: Structured Output으로 content_type 분류 + 조건부 Tool Calling
     """
     try:
-        result = await route_message(
-            message=req.message,
+        result = await save_record(
+            user_text=req.userText,
             user_id=req.userId,
             session_id=req.sessionId,
         )
-
-        # route_message 결과를 ActionResult 모델로 변환
-        actions = []
-        for action_data in result.get("actions", []):
-            actions.append(ActionResult(
-                action=action_data.get("action", ""),
-                query=action_data.get("query"),
-                content=action_data.get("content"),
-                results=action_data.get("results"),
-                count=action_data.get("count"),
-                memoryId=action_data.get("memory_id"),
-            ))
-
-        return MessageResponse(
-            response=result["response"],
-            actions=actions,
+        return RecordResponse(
+            success=True,
+            memoryId=result["memory_id"],
+            sessionId=result["session_id"],
         )
     except Exception as e:
-        logger.error("MCP 라우팅 실패: %s", e)
+        logger.error("기록 저장 실패: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
+# Logic 3: 검색
+# ============================================================
+
+@router.post("/search", response_model=SearchResponse)
+async def search_endpoint(req: SearchRequest):
+    """
+    검색어로 유사한 기억을 찾아 사진/텍스트로 분류하여 반환합니다.
+
+    V1과의 차이:
+      - V1: POST /api/ai/message → LLM이 Tool Calling으로 검색 실행
+      - V2: 검색창에서 이 엔드포인트 직접 호출. LLM / Tool Calling 없음.
+
+    결과는 photos / memos 두 그룹으로 분리되어 반환됩니다.
+    프론트에서 각 그룹을 다른 카드 UI로 렌더링합니다.
+    """
+    try:
+        result = await search_memories_by_query(
+            query=req.query,
+            user_id=req.userId,
+            threshold=req.threshold,
+            count=req.count,
+        )
+
+        def to_item(r: dict) -> SearchResultItem:
+            return SearchResultItem(
+                id=r["id"],
+                chatSessionId=r.get("chat_session_id"),
+                userText=r.get("user_text"),
+                combinedText=r.get("combined_text"),
+                imageUrl=r.get("image_url"),
+                imageCaption=r.get("image_caption"),
+                imageTags=r.get("image_tags"),
+                similarity=r["similarity"],
+            )
+
+        return SearchResponse(
+            photos=[to_item(r) for r in result["photos"]],
+            memos=[to_item(r) for r in result["memos"]],
+            total=result["total"],
+        )
+    except Exception as e:
+        logger.error("검색 실패: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
 
