@@ -6,7 +6,7 @@ Logic 1: 벡터화 파이프라인 (V2)
     → extract_vision_tags()         (GPT-4o Vision) → image_caption + image_tags
     → build_combined_text()         (LLM 없이 직접 조합)
     → create_embedding()            (text-embedding-3-small)
-    → update_memory_images()        (memory_images 테이블 INSERT)
+    → update_memory_images()        (memory_images 테이블 Vision 결과 UPDATE)
     → update_memories_vectorization() (memories 테이블 combined_text + combined_embedding UPDATE)
 
 V1과의 차이:
@@ -90,19 +90,14 @@ async def run_vectorize_pipeline(
     """
     from app.services.supabase_service import update_memory_images, update_memories_vectorization
 
-    # metadata에서 위치/시각 추출
+    # metadata에서 place_name 추출 (combined_text 조합용)
     place_name = None
-    taken_at = None
-
     if metadata:
         location = metadata.get("location", {})
         if location.get("hasLocation"):
             short_addr = location.get("shortAddress", "")
             poi = location.get("poi", "")
             place_name = f"{short_addr} {poi}".strip() or None
-
-        capture_time = metadata.get("captureTime", {})
-        taken_at = capture_time.get("utc") or None
 
     # 1단계: Vision API → image_caption + image_tags
     logger.info("1/3 Vision 분석 시작: %s", image_url[:50])
@@ -125,15 +120,11 @@ async def run_vectorize_pipeline(
 
     # 4단계: DB 저장
     if memory_id:
-        # memory_images 테이블 INSERT
+        # memory_images 테이블 UPDATE (프론트가 INSERT한 행에 Vision 결과 채움)
         await update_memory_images(
             memory_id=memory_id,
-            image_url=image_url,
             image_caption=image_caption,
             image_tags=image_tags,
-            taken_at=taken_at,
-            place_name=place_name,
-            exif_json=metadata,
         )
         # memories 테이블 combined_text + combined_embedding UPDATE
         await update_memories_vectorization(

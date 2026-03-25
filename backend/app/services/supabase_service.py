@@ -134,45 +134,36 @@ async def save_record_chat_messages(
 
 async def update_memory_images(
     memory_id: str,
-    image_url: str,
     image_caption: str | None,
     image_tags: list | None,
-    taken_at: str | None,
-    place_name: str | None,
-    exif_json: dict | None,
 ) -> list[dict]:
     """
-    memory_images 테이블에 사진 정보를 INSERT합니다.
+    memory_images 테이블의 Vision 분석 결과(image_caption, image_tags)를 UPDATE합니다.
+
+    프론트에서 이미 INSERT한 행(image_url, taken_at, place_name, exif_json)에
+    백엔드 Vision 분석 결과만 채웁니다.
 
     Args:
         memory_id:     memories 테이블 UUID (FK)
-        image_url:     Supabase Storage 이미지 URL
         image_caption: Vision API가 생성한 사진 한 줄 설명
         image_tags:    Vision API가 추출한 키워드 목록 (JSONB)
-        taken_at:      촬영 시각 ISO 문자열 (DB 필터링용)
-        place_name:    역지오코딩 결과
-        exif_json:     원본 EXIF 메타데이터 전체
 
     Returns:
-        생성된 레코드 목록
+        업데이트된 레코드 목록
     """
     client = get_client()
 
     result = (
         client.table("memory_images")
-        .insert({
-            "memory_id": memory_id,
-            "image_url": image_url,
+        .update({
             "image_caption": image_caption,
             "image_tags": image_tags,
-            "taken_at": taken_at,
-            "place_name": place_name,
-            "exif_json": exif_json,
         })
+        .eq("memory_id", memory_id)
         .execute()
     )
 
-    logger.info("memory_images INSERT 완료: memory_id=%s", memory_id)
+    logger.info("memory_images Vision 결과 UPDATE 완료: memory_id=%s", memory_id)
     return result.data
 
 
