@@ -2789,7 +2789,7 @@ router-view {
 
 .bubble-time {
   font-size: 11px;
-  color: rgba(0, 0, 0, 0.35);
+  color: var(--color-text-subtle);
   white-space: nowrap;
   flex-shrink: 0;
   padding-bottom: 4px;
