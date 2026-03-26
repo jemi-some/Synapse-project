@@ -51,6 +51,7 @@ async def save_memory(
     user_text: str,
     combined_text: str,
     combined_embedding: list[float],
+    location_name: str | None = None,
 ) -> list[dict]:
     """
     텍스트 기록을 memories 테이블에 INSERT합니다.
@@ -61,6 +62,7 @@ async def save_memory(
         user_text:          사용자가 입력한 원본 텍스트
         combined_text:      임베딩용 구조화 텍스트 (Phase A: user_text와 동일)
         combined_embedding: combined_text의 1536차원 벡터
+        location_name:      기록 시점 위치명 (Nominatim reverse geocoding, 없으면 None)
 
     Returns:
         생성된 레코드 목록
@@ -75,6 +77,7 @@ async def save_memory(
             "user_text": user_text,
             "combined_text": combined_text,
             "combined_embedding": combined_embedding,
+            "location_name": location_name,
         })
         .execute()
     )

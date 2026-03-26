@@ -25,6 +25,7 @@ async def save_record(
     user_text: str,
     user_id: str,
     session_id: str,
+    location_name: str | None = None,
 ) -> dict:
     """
     텍스트 기록 저장 (MVP Phase A).
@@ -35,9 +36,10 @@ async def save_record(
     4. chat_messages INSERT — raw_input 행 + memory_card 행
 
     Args:
-        user_text:   사용자가 입력한 텍스트
-        user_id:     Supabase Auth 사용자 UUID
-        session_id:  chat_sessions UUID
+        user_text:      사용자가 입력한 텍스트
+        user_id:        Supabase Auth 사용자 UUID
+        session_id:     chat_sessions UUID
+        location_name:  기록 시점 위치명 (Nominatim reverse geocoding, 없으면 None)
 
     Returns:
         { memory_id, session_id }
@@ -56,6 +58,7 @@ async def save_record(
         user_text=user_text,
         combined_text=combined_text,
         combined_embedding=combined_embedding,
+        location_name=location_name,
     )
     memory_id = memory[0]["id"] if memory else None
 

@@ -89,6 +89,7 @@ async def record_endpoint(req: RecordRequest):
             user_text=req.userText,
             user_id=req.userId,
             session_id=req.sessionId,
+            location_name=req.locationName,
         )
         return RecordResponse(
             success=True,

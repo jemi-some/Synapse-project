@@ -58,6 +58,7 @@ class RecordRequest(BaseModel):
     userText: str                              # 사용자 입력 텍스트
     userId: str                                # Supabase Auth 사용자 UUID
     sessionId: str                             # chat_sessions UUID
+    locationName: Optional[str] = None         # 기록 시점 위치명 (Nominatim reverse geocoding)
 
 
 class RecordResponse(BaseModel):
