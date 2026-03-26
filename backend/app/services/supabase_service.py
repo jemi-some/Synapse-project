@@ -221,7 +221,7 @@ async def search_memories(
 
     Returns:
         유사도 내림차순으로 정렬된 기억 목록
-        각 항목: { id, chat_session_id, user_text, combined_text, image_url, image_caption, image_tags, similarity }
+        각 항목: { id, chat_session_id, user_text, combined_text, created_at, image_url, image_caption, image_tags, taken_at, place_name, similarity }
     """
     client = get_client()
 

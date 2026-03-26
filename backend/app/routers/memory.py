@@ -130,9 +130,12 @@ async def search_endpoint(req: SearchRequest):
                 chatSessionId=r.get("chat_session_id"),
                 userText=r.get("user_text"),
                 combinedText=r.get("combined_text"),
+                createdAt=r.get("created_at"),
                 imageUrl=r.get("image_url"),
                 imageCaption=r.get("image_caption"),
                 imageTags=r.get("image_tags"),
+                takenAt=r.get("taken_at"),
+                placeName=r.get("place_name"),
                 similarity=r["similarity"],
             )
 

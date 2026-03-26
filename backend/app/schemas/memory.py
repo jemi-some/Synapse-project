@@ -94,6 +94,9 @@ class SearchResultItem(BaseModel):
     imageUrl: Optional[str] = None             # 사진 기억일 때만 존재
     imageCaption: Optional[str] = None
     imageTags: Optional[list] = None
+    createdAt: Optional[str] = None            # 기억 생성 시각 (memories.created_at)
+    takenAt: Optional[str] = None              # 촬영 시각 (memory_images.taken_at)
+    placeName: Optional[str] = None            # 촬영 장소 (memory_images.place_name)
     similarity: float
 
 
