@@ -137,6 +137,21 @@ export const deleteChatSession = async (sessionId) => {
 }
 
 /**
+ * 기억(memory)과 연관된 chat_messages를 삭제합니다.
+ * @param {string} memoryId - 삭제할 memories UUID
+ * @returns {Promise<{error: Object|null}>}
+ */
+export const deleteMemory = async (memoryId) => {
+  try {
+    await supabase.from('chat_messages').delete().eq('memory_id', memoryId)
+    const { error } = await supabase.from('memories').delete().eq('id', memoryId)
+    return { error }
+  } catch (error) {
+    return { error }
+  }
+}
+
+/**
  * 대화 세션에 속한 메시지를 시간 순서대로 가져옵니다. (Cursor 기반 페이지네이션)
  * @param {string} sessionId - 조회할 채팅 세션 UUID
  * @param {Object} options - 페이지네이션 옵션
@@ -151,9 +166,10 @@ export const getMessages = async (sessionId, options = {}) => {
 
     let query = supabase
       .from('chat_messages')
-      .select('*, memories(file_url, metadata)')
+      .select('*, memories(user_text, combined_text, location_name, memory_images(image_url, image_caption, image_tags, taken_at, place_name))')
       .eq('chat_session_id', sessionId)
-      .in('message_type', ['text', 'image'])
+      .eq('is_visible', true)
+      .in('message_type', ['text', 'image', 'raw_input', 'memory_card', 'assistant_reply'])
       .order('created_at', { ascending })
       .limit(limit + 1) // +1개를 가져와서 hasMore 판단
 
@@ -259,9 +275,35 @@ export const uploadFile = async (file, bucket = 'media', path = null) => {
 }
 
 /**
- * 업로드된 이미지와 메타데이터를 `memories` 테이블에 저장합니다.
- * 백엔드의 vectorize API 호출 전에 DB에 레코드를 생성하기 위해 사용됩니다.
- * @param {Object} memoryData - url, 사이즈, 추출된 메타데이터 등
+ * 사진 업로드 직후 `memory_images` 테이블에 레코드를 생성합니다. (V2)
+ * image_caption, image_tags는 백엔드 벡터화 완료 후 UPDATE됩니다.
+ * @param {Object} params - memoryId, imageUrl, takenAt, placeName, exifJson
+ */
+export const insertMemoryImage = async ({ memoryId, imageUrl, takenAt, placeName, exifJson }) => {
+  try {
+    const { data, error } = await supabase
+      .from('memory_images')
+      .insert([{
+        memory_id: memoryId,
+        image_url: imageUrl,
+        taken_at: takenAt || null,
+        place_name: placeName || null,
+        exif_json: exifJson || null,
+      }])
+      .select()
+      .single()
+
+    if (error) throw error
+    return { data, error: null }
+  } catch (error) {
+    return { data: null, error }
+  }
+}
+
+/**
+ * 사진 업로드 직후 `memories` 테이블에 레코드를 생성합니다. (V2)
+ * 이미지 URL, 캡션, 태그 등은 백엔드 /api/ai/vectorize가 채웁니다.
+ * @param {Object} memoryData - chat_session_id, user_text 등
  * @returns {Promise<{data: Object|null, error: Object|null}>} 생성된 memory 레코드 반환
  */
 export const saveMemory = async (memoryData) => {
@@ -273,13 +315,8 @@ export const saveMemory = async (memoryData) => {
       .from('memories')
       .insert([{
         user_id: user.id,
-        file_url: memoryData.image_url || memoryData.file_url,
-        file_name: memoryData.file_name,
-        file_size: memoryData.file_size,
-        mime_type: memoryData.mime_type,
-        metadata: memoryData.selected_metadata || {},
         chat_session_id: memoryData.chat_session_id,
-        user_text: memoryData.user_text || null
+        user_text: memoryData.user_text || null,
       }])
       .select()
       .single()

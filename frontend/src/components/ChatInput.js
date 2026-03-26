@@ -1,9 +1,10 @@
 import { Component } from '../core'
-import { sendMessage, vectorize } from '../services/openai'
-import { addMessage, updateChatSession, getMessages, uploadFile, saveMemory, createChatSession, supabase } from '../services/supabase'
+import { saveRecord, searchMemories, vectorize, fetchRelatedMemories } from '../services/openai'
+import { addMessage, updateChatSession, getMessages, uploadFile, saveMemory, insertMemoryImage, createChatSession, supabase } from '../services/supabase'
 import * as exifr from 'exifr'
 import imageCompression from 'browser-image-compression'
 import { getUserFriendlyError, isOnline } from '../utils/errorHandler'
+import { getCurrentLocationName } from '../utils/geolocation'
 
 export default class ChatInput extends Component {
   constructor() {
@@ -19,7 +20,8 @@ export default class ChatInput extends Component {
         currentChatSessionId: null,
         attachedFile: null, // 첨부된 파일 객체
         attachedFilePreview: null, // 첨부된 파일 미리보기 URL
-        hasPreviousActions: false // 직전 AI 응답에 actions가 있었는지 여부 (자동 스레드 전환용)
+        hasPreviousActions: false, // 직전 AI 응답에 actions가 있었는지 여부 (자동 스레드 전환용)
+        mode: 'record', // 'record' | 'search'
       }
     })
 
@@ -51,6 +53,13 @@ export default class ChatInput extends Component {
 
     // 리사이즈 이벤트 리스너 추가
     window.addEventListener('resize', this.handleResize)
+
+    // 탭 변경 이벤트 리스너 (외부 연동용, 현재는 내부 탭으로 처리)
+    document.addEventListener('tab-change', (e) => {
+      this.state.mode = e.detail.tab
+      this.updatePlaceholder()
+      this.render()
+    })
 
     // 모바일 감지
     this.isMobile = this.detectMobile()
@@ -250,8 +259,8 @@ export default class ChatInput extends Component {
   async extractMetadata(file) {
     try {
       const metadata = {
-        dateTime: {},
-        gps: null,
+        captureTime: {},   // { utc, local }
+        location: null,    // { hasLocation, latitude, longitude, shortAddress, fullAddress }
         camera: {},
         imageSize: {}
       }
@@ -265,14 +274,11 @@ export default class ChatInput extends Component {
         // 날짜/시간 (여러 필드 시도)
         const dateSource = exifData.DateTimeOriginal || exifData.CreateDate || exifData.ModifyDate || exifData.DateTime
         if (dateSource) {
-          // Date 객체인 경우 ISO 문자열로 변환
-          metadata.dateTime.original = dateSource instanceof Date
+          const utc = dateSource instanceof Date
             ? dateSource.toISOString()
             : new Date(dateSource).toISOString()
-          console.log('📅 촬영 날짜:', metadata.dateTime.original, '(출처:',
-            exifData.DateTimeOriginal ? 'DateTimeOriginal' :
-            exifData.CreateDate ? 'CreateDate' :
-            exifData.ModifyDate ? 'ModifyDate' : 'DateTime', ')')
+          metadata.captureTime = { utc, local: utc }
+          console.log('📅 촬영 날짜:', utc)
         } else {
           console.warn('⚠️ 날짜/시간 정보 없음')
         }
@@ -286,28 +292,30 @@ export default class ChatInput extends Component {
         if (exifData.ExifImageWidth) metadata.imageSize.width = exifData.ExifImageWidth
         if (exifData.ExifImageHeight) metadata.imageSize.height = exifData.ExifImageHeight
 
-        // GPS (exifr는 포맷팅된 위/경도를 제공함)
+        // GPS
         if (exifData.latitude && exifData.longitude) {
           console.log('📍 GPS 좌표:', exifData.latitude, exifData.longitude)
-          metadata.gps = {
+          metadata.location = {
+            hasLocation: true,
             latitude: exifData.latitude,
-            longitude: exifData.longitude
+            longitude: exifData.longitude,
           }
 
-          // 위치 정보를 주소로 변환 시도
+          // 역지오코딩
           try {
             const { reverseGeocode } = await import('../services/geocoding.js')
-            const addressInfo = await reverseGeocode(metadata.gps.latitude, metadata.gps.longitude)
+            const addressInfo = await reverseGeocode(exifData.latitude, exifData.longitude)
             if (addressInfo) {
-              metadata.gps.address = addressInfo.fullAddress
-              metadata.gps.shortAddress = addressInfo.shortAddress
-              console.log('📍 주소:', metadata.gps.shortAddress)
+              metadata.location.fullAddress = addressInfo.fullAddress
+              metadata.location.shortAddress = addressInfo.shortAddress
+              console.log('📍 주소:', metadata.location.shortAddress)
             }
           } catch (geoError) {
             console.warn('역지오코딩 실패:', geoError)
           }
         } else {
           console.warn('⚠️ GPS 정보 없음')
+          metadata.location = { hasLocation: false }
         }
       } else {
         console.warn('⚠️ EXIF 데이터가 없습니다')
@@ -316,7 +324,7 @@ export default class ChatInput extends Component {
       return metadata
     } catch (error) {
       console.error('❌ 메타데이터 추출 실패:', error)
-      return { dateTime: {}, gps: null, camera: {}, imageSize: {} }
+      return { captureTime: {}, location: { hasLocation: false }, camera: {}, imageSize: {} }
     }
   }
 
@@ -409,17 +417,12 @@ export default class ChatInput extends Component {
         const { data: uploadData, error: uploadError } = await uploadFile(fileToUpload)
         if (uploadError) throw new Error(`업로드 실패: ${uploadError.message}`)
 
-        // [4] memories 테이블 INSERT
-        const memoryPayload = {
-          file_url: uploadData.publicUrl,
-          file_name: uploadData.name,
-          file_size: uploadData.size,
-          mime_type: uploadData.type,
-          selected_metadata: metadata,
+        // [4] memories 테이블 INSERT (위치 fetch와 병렬 시작)
+        const locationPromise = getCurrentLocationName()
+        const { data: memoryData, error: memoryError } = await saveMemory({
           chat_session_id: chatSessionId,
-          user_text: textMessage
-        }
-        const { data: memoryData, error: memoryError } = await saveMemory(memoryPayload)
+          user_text: textMessage,
+        })
 
         if (memoryError) {
           console.warn('Memory 테이블 저장 중 오류 발생 (진행은 계속됨):', memoryError)
@@ -427,40 +430,57 @@ export default class ChatInput extends Component {
 
         const memoryId = memoryData ? memoryData.id : null
 
+        // [4-1] memory_images 테이블 INSERT (exif_json, taken_at, place_name 즉시 저장)
+        if (memoryId) {
+          insertMemoryImage({
+            memoryId,
+            imageUrl: uploadData.publicUrl,
+            takenAt: metadata?.captureTime?.utc || null,
+            placeName: metadata?.location?.shortAddress || metadata?.location?.fullAddress || null,
+            exifJson: metadata,
+          }).catch(err => console.warn('memory_images 저장 실패:', err))
+        }
+
         // [5] chat_messages에 사진 메시지 저장 (memories 저장 후 memory_id 포함)
-        const { error: userMessageError } = await addMessage(chatSessionId, textMessage || '', 'image', 'user', null, memoryId)
+        const { error: userMessageError } = await addMessage(chatSessionId, textMessage || '', 'memory_card', 'user', null, memoryId)
         if (userMessageError) {
           console.warn('사용자 메시지 저장 실패:', userMessageError)
         }
 
-        if (userMessageId && chatBubbles && typeof chatBubbles.updateMessage === 'function') {
-          const metadataUpdates = {
-            memoryId,
-            storagePath: uploadData.path,
-            mimeType: uploadData.mimeType || uploadData.type || fileToUpload?.type || null
-          }
-          chatBubbles.updateMessage(userMessageId, {
-            imageUrl: uploadData.publicUrl,
-            metadata: metadataUpdates
-          })
-          shouldReleasePreview = true
-        }
-
-        // [5] AI 응답: 메타데이터에서 추출한 장소와 날짜를 즉시 표시
+        // [5] imageUrl 업데이트와 memory_card 추가를 한 번의 render로 처리
         if (chatBubbles) {
-          const locationText = metadata?.gps?.shortAddress || metadata?.gps?.address || '위치 정보 없음'
-          const dateText = metadata?.dateTime?.original
-            ? new Date(metadata.dateTime.original).toLocaleString('ko-KR', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-              })
-            : ''
+          // 상태만 직접 수정 (render 호출 없음)
+          if (userMessageId) {
+            const metadataUpdates = {
+              memoryId,
+              storagePath: uploadData.path,
+              mimeType: uploadData.mimeType || uploadData.type || fileToUpload?.type || null
+            }
+            const msgIdx = chatBubbles.state.messages.findIndex(m => m.id === userMessageId)
+            if (msgIdx !== -1) {
+              chatBubbles.state.messages[msgIdx].imageUrl = uploadData.publicUrl
+              chatBubbles.state.messages[msgIdx].metadata = {
+                ...(chatBubbles.state.messages[msgIdx].metadata || {}),
+                ...metadataUpdates
+              }
+            }
+            shouldReleasePreview = true
+          }
 
-          chatBubbles.showPhotoUploadResult(dateText, locationText)
-          await addMessage(chatSessionId, '', 'text', 'assistant', null, memoryId)
+          // memory_card 추가 → 여기서 한 번만 render
+          const memoryCardId = chatBubbles.showMemoryCard(textMessage || '', null)
+          await addMessage(chatSessionId, '', 'assistant_reply', 'assistant', null, memoryId)
+
+          // 위치 완료 후 UI + DB 업데이트 (background)
+          locationPromise.then(async locationName => {
+            if (!locationName) return
+            if (chatBubbles && memoryCardId) {
+              chatBubbles.updateMessage(memoryCardId, { locationName })
+            }
+            if (memoryId) {
+              await supabase.from('memories').update({ location_name: locationName }).eq('id', memoryId)
+            }
+          }).catch(() => {})
         }
 
         // [6] 백엔드 벡터화 파이프라인은 백그라운드에서 실행 (await 없음)
@@ -477,57 +497,60 @@ export default class ChatInput extends Component {
       }
       // Case B: 텍스트만 전송
       else if (textMessage) {
-        // [1] 사용자 텍스트 화면 표시
-        if (chatBubbles) chatBubbles.showUserMessage(textMessage)
-        const { error: textMessageError } = await addMessage(chatSessionId, textMessage, 'text', 'user')
-        if (textMessageError) {
-          console.warn('텍스트 메시지 저장 실패:', textMessageError)
-        }
+        if (this.state.mode === 'search') {
+          // [검색 모드] 검색어 → /api/ai/search
+          if (chatBubbles) chatBubbles.showUserMessage(textMessage)
+          if (chatBubbles) chatBubbles.showLoadingBubble()
 
-        // [2] 메인 피드 채팅 라우팅 (MCP)
-        if (chatBubbles) chatBubbles.showLoadingBubble()
-        const responseData = await sendMessage(textMessage, userId, chatSessionId)
-        if (chatBubbles) chatBubbles.hideLoadingBubble()
+          const searchResult = await searchMemories(textMessage, userId)
 
-        // [3] AI 응답 처리 — RN_Task.md AI 응답 로직 흐름 기준
-        if (chatBubbles && responseData.success) {
-          // 백엔드 snake_case → 앱 포맷(camelCase) 변환
-          const normalizeAction = (a) => ({
-            action: a.action,
-            count: a.count ?? null,
-            query: a.query ?? null,
-            content: a.content ?? null,
-            results: a.results ?? null,
-            memoryId: a.memory_id ?? a.memoryId ?? null,
-          })
-          const actions = (responseData.actions ?? []).map(normalizeAction)
-          const searched = actions.some(a => a.action === 'search_photos' || a.action === 'search_memos')
-          const hasResults = actions.some(
-            a => (a.action === 'search_photos' || a.action === 'search_memos') &&
-                 a.results && a.results.length > 0
-          )
+          if (chatBubbles) chatBubbles.hideLoadingBubble()
 
-          if (searched && hasResults) {
-            // 검색 결과 있음 → AI 텍스트 스킵, 카드/메모만 표시
-            this.state.hasPreviousActions = true
-            const totalCount = actions.reduce((sum, a) => sum + (a.count || 0), 0)
-            const summaryText = `검색결과 ${totalCount}건을 찾았습니다.`
-            chatBubbles.showSearchResults(actions)
-            for (let i = 0; i < actions.length; i++) {
-              const content = i === 0 ? summaryText : ''
-              await addMessage(chatSessionId, content, 'text', 'assistant', actions[i])
+          if (chatBubbles) {
+            if (searchResult.total === 0) {
+              chatBubbles.showAIMessage('검색 결과가 없습니다. 다른 검색어를 입력해보세요.')
+            } else {
+              chatBubbles.showSearchResultsV2(searchResult)
             }
-          } else if (searched && !hasResults) {
-            // 검색했지만 결과 없음 → 하드코딩 메시지
-            this.state.hasPreviousActions = false
-            chatBubbles.showAIMessage(responseData.response)
-            await addMessage(chatSessionId, responseData.response, 'text', 'assistant')
-          } else {
-            // save_memo / 잡담 → AI 텍스트 응답 표시
-            this.state.hasPreviousActions = false
-            chatBubbles.showAIMessage(responseData.response)
-            await addMessage(chatSessionId, responseData.response, 'text', 'assistant',
-              actions.length > 0 ? actions[0] : null)
+          }
+
+        } else {
+          // [기록 모드] 텍스트 기록 저장 → /api/ai/record
+          const userMessageId = chatBubbles ? chatBubbles.showUserMessage(textMessage) : null
+
+          // 위치 fetch와 저장을 병렬로 시작
+          const locationPromise = getCurrentLocationName()
+          const recordResult = await saveRecord(textMessage, userId, chatSessionId, null)
+
+          // memoryId를 user message 상태에 저장 (슬라이드 삭제용)
+          if (userMessageId && recordResult?.memoryId && chatBubbles) {
+            chatBubbles.updateMessage(userMessageId, { memoryId: recordResult.memoryId })
+          }
+
+          // 저장 완료 즉시 카드 표시 (위치는 나중에)
+          const memoryCardId = chatBubbles?.showMemoryCard(textMessage, null)
+
+          // 위치 완료 후 UI + DB 업데이트 (background)
+          locationPromise.then(async locationName => {
+            if (!locationName) return
+            if (chatBubbles && memoryCardId) {
+              chatBubbles.updateMessage(memoryCardId, { locationName })
+            }
+            if (recordResult?.memoryId) {
+              await supabase.from('memories').update({ location_name: locationName }).eq('id', recordResult.memoryId)
+            }
+          }).catch(() => {})
+
+          // 유사 기억 탐색 (background — memory_card 표시를 블로킹하지 않음)
+          if (recordResult?.memoryId) {
+            fetchRelatedMemories(recordResult.memoryId, userId).then(async result => {
+              if (result.total > 0 && chatBubbles) {
+                const payload = { ...result, summary: '비슷한 기억이 있어요' }
+                chatBubbles.showSearchResultsV2(payload)
+                // 새로고침 후에도 복원되도록 DB에 저장
+                await addMessage(chatSessionId, '비슷한 기억이 있어요', 'structured_output', 'assistant', payload, recordResult.memoryId)
+              }
+            }).catch(() => {})
           }
         }
       }
@@ -797,8 +820,10 @@ export default class ChatInput extends Component {
   updatePlaceholder() {
     if (!this.state.isEnabled) {
       this.state.placeholder = '이야기를 시작하세요'
+    // } else if (this.state.mode === 'search') {
+    //   this.state.placeholder = '검색어를 입력하세요...'
     } else {
-      this.state.placeholder = '메시지를 입력하세요...'
+      this.state.placeholder = '지금 떠오른 순간을 남겨보세요...'
     }
   }
 
@@ -816,7 +841,9 @@ export default class ChatInput extends Component {
     const currentMessage = this.state.message
 
     this.el.style.display = ''
-    const { message, isSending, isEnabled, placeholder, attachedFilePreview } = this.state
+    const { message, isSending, isEnabled, placeholder, attachedFilePreview, mode } = this.state
+    // const isSearchMode = mode === 'search' // 검색 모드 UI 변경 비활성화
+    const isSearchMode = false
     const hasMessage = message.trim().length > 0 || attachedFilePreview !== null
     const isDisabled = !isEnabled || isSending
     const uploadInputId = 'chat-photo-upload'
@@ -824,7 +851,8 @@ export default class ChatInput extends Component {
     const wrapperClasses = [
       'chat-input-wrapper',
       isEnabled ? '' : 'disabled',
-      attachedFilePreview ? 'has-preview' : ''
+      attachedFilePreview ? 'has-preview' : '',
+      // isSearchMode ? 'search-mode' : '',
     ].filter(Boolean).join(' ')
 
     const previewHtml = attachedFilePreview ? `
@@ -838,17 +866,34 @@ export default class ChatInput extends Component {
       </div>
     ` : ''
 
-    this.el.innerHTML = `
-      <div class="${wrapperClasses}">
-        ${previewHtml}
-
-        <form class="chat-input-form" role="search" aria-label="메시지 입력">
+    const uploadButtonHtml = `
           <div class="chat-input-left">
             <input type="file" id="${uploadInputId}" accept="image/*" class="chat-upload-input" ${isDisabled ? 'disabled' : ''} />
             <label for="${uploadInputId}" class="chat-upload-button ${isDisabled ? 'disabled' : ''}" aria-label="사진 업로드" tabindex="0">
               <span class="material-symbols-outlined">add</span>
             </label>
           </div>
+    `
+    // 기록 모드: + 버튼 표시 / 검색 모드: + 버튼 숨김
+    // const uploadButtonHtml = !isSearchMode ? `...` : ''
+
+    const sendIcon = isSending ? 'hourglass_empty' : 'send'
+    // 기록 모드: send 아이콘 / 검색 모드: search 아이콘
+    // const sendIcon = isSending ? 'hourglass_empty' : (isSearchMode ? 'search' : 'send')
+
+    this.el.innerHTML = `
+      ${/* 기록/검색 슬라이더 주석처리 */''}
+      ${/* <div class="segment-tabs">
+        <div class="segment-tab-slider" style="transform: translateX(${activeTab === 'search' ? '100%' : '0'})"></div>
+        <button class="segment-tab ${activeTab === 'record' ? 'active' : ''}" data-tab="record">기록</button>
+        <button class="segment-tab ${activeTab === 'search' ? 'active' : ''}" data-tab="search">검색</button>
+      </div> */''}
+      <div class="segment-tabs" style="display:none"><!-- 슬라이더 비활성화 --></div>
+      <div class="${wrapperClasses}">
+        ${previewHtml}
+
+        <form class="chat-input-form" role="search" aria-label="메시지 입력">
+          ${uploadButtonHtml}
 
           <div class="chat-input-field-wrapper">
             <textarea
@@ -864,14 +909,14 @@ export default class ChatInput extends Component {
             >${message}</textarea>
           </div>
 
-          <button 
-            type="submit" 
-            class="chat-send-button ${hasMessage && !isDisabled ? 'active' : ''}" 
+          <button
+            type="submit"
+            class="chat-send-button ${hasMessage && !isDisabled ? 'active' : ''}"
             aria-label="메시지 전송"
             ${!hasMessage || isDisabled ? 'disabled' : ''}
           >
             <span class="chat-send-icon material-symbols-outlined">
-              ${isSending ? 'hourglass_empty' : 'send'}
+              ${sendIcon}
             </span>
           </button>
         </form>
@@ -881,6 +926,52 @@ export default class ChatInput extends Component {
       </div>
     `
     // 글자수 ${message.length > 0 ? `<div class="character-count">${message.length}</div>` : ''}
+
+    // 세그먼트 탭 이벤트
+    this.el.querySelectorAll('.segment-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tab = btn.dataset.tab
+        if (this.state.mode === tab) return
+        this.state = { ...this.state, mode: tab }
+        const isSearch = tab === 'search'
+
+        // 슬라이더 + 탭 active 클래스
+        const slider = this.el.querySelector('.segment-tab-slider')
+        if (slider) slider.style.transform = `translateX(${isSearch ? '100%' : '0'})`
+        this.el.querySelectorAll('.segment-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab))
+
+        // wrapper search-mode 클래스
+        const wrapper = this.el.querySelector('.chat-input-wrapper')
+        if (wrapper) wrapper.classList.toggle('search-mode', isSearch)
+
+        // 업로드 버튼 show/hide
+        const leftBtn = this.el.querySelector('.chat-input-left')
+        if (leftBtn) leftBtn.style.display = isSearch ? 'none' : ''
+
+        // 전송 아이콘
+        const sendIcon = this.el.querySelector('.chat-send-icon')
+        if (sendIcon) sendIcon.textContent = isSearch ? 'search' : 'send'
+
+        // textarea placeholder + enterkeyhint
+        const textarea = this.el.querySelector('.chat-input-field')
+        if (textarea) {
+          this.updatePlaceholder()
+          textarea.placeholder = this.state.placeholder
+          textarea.setAttribute('enterkeyhint', isSearch ? 'search' : 'send')
+          textarea.focus()
+        }
+
+        // ChatBubbles 화면 전환
+        const chatBubbles = window.app?.chatBubbles
+        if (chatBubbles) {
+          if (isSearch) {
+            chatBubbles.switchToSearchMode()
+          } else {
+            chatBubbles.switchToRecordMode()
+          }
+        }
+      })
+    })
 
     // 이벤트 리스너 추가 (지연 실행으로 DOM 준비 대기)
     setTimeout(() => {

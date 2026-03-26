@@ -68,7 +68,7 @@ export const vectorize = async (imageUrl, memoryId, metadata, userText = null) =
       metadata,
       userText,
     })
-    // 백엔드는 { success, visionTags, contextSummary, embeddingDimensions } 형태로 반환
+    // 백엔드는 { success, imageCaption, imageTags, combinedText, embeddingDimensions } 형태로 반환
     if (!data.success) throw new Error(data.error || '벡터화 실패')
     return data
   } catch (error) {
@@ -78,28 +78,69 @@ export const vectorize = async (imageUrl, memoryId, metadata, userText = null) =
 }
 
 /**
- * Step 2: 메인 피드 채팅 메시지 라우팅 (Phase 1-B)
- * @param {string} message - 사용자 입력
+ * Step 2: 메인 피드 텍스트 기록 저장 (V2)
+ * @param {string} userText - 사용자 입력 텍스트
  * @param {string} userId - 사용자 UUID
- * @param {string} sessionId - 현재 채팅 세션 ID (메인 피드용)
+ * @param {string} sessionId - 현재 채팅 세션 ID
  */
-export const sendMessage = async (message, userId, sessionId) => {
+export const saveRecord = async (userText, userId, sessionId, locationName = null) => {
   try {
-    const data = await callApi('/api/ai/message', {
-      message,
+    const data = await callApi('/api/ai/record', {
+      userText,
       userId,
       sessionId,
+      locationName,
     })
-    // 백엔드는 { response, actions } 형태로 반환
-    return { success: true, ...data }
+    // 백엔드는 { success, memoryId, sessionId } 형태로 반환
+    if (!data.success) throw new Error('기록 저장 실패')
+    return data
   } catch (error) {
-    console.error('채팅 응답 생성 에러:', error)
-    throw new Error('AI 응답 생성에 실패했습니다.')
+    console.error('기록 저장 에러:', error)
+    throw new Error(`기록 저장에 실패했습니다: ${error.message}`)
   }
 }
 
 /**
- * Step 3: 스레드 내부 다이얼로그 (Thread endpoint)
+ * C-0: 기록 후 유사 기억 탐색
+ * 기록 저장 직후 background에서 호출합니다.
+ * 임베딩 없거나 유사 기억 없으면 { photos: [], memos: [], total: 0 } 반환.
+ * @param {string} memoryId - 방금 저장된 memories UUID
+ * @param {string} userId - 사용자 UUID
+ */
+export const fetchRelatedMemories = async (memoryId, userId) => {
+  try {
+    const data = await callApi('/api/ai/record-related', { memoryId, userId })
+    return data
+  } catch (error) {
+    console.error('유사 기억 탐색 에러:', error)
+    return { photos: [], memos: [], total: 0 }
+  }
+}
+
+/**
+ * Step 3: 검색 (V2)
+ * @param {string} query - 검색어
+ * @param {string} userId - 사용자 UUID
+ * @param {Object} [options] - threshold, count 등 옵션
+ */
+export const searchMemories = async (query, userId, options = {}) => {
+  try {
+    const data = await callApi('/api/ai/search', {
+      query,
+      userId,
+      threshold: options.threshold,
+      count: options.count,
+    })
+    // 백엔드는 { photos, memos, total } 형태로 반환
+    return data
+  } catch (error) {
+    console.error('검색 에러:', error)
+    throw new Error(`검색에 실패했습니다: ${error.message}`)
+  }
+}
+
+/**
+ * Step 4: 스레드 내부 다이얼로그 (Thread endpoint)
  * @param {string} message - 사용자 입력
  * @param {string} parentMessageId - 스레드가 시작된 부모 검색 결과 메시지의 UUID
  * @param {string} sessionId - 현재 채팅 세션 ID
@@ -122,6 +163,7 @@ export const sendThreadMessage = async (message, parentMessageId, sessionId) => 
 
 export default {
   vectorize,
-  sendMessage,
+  saveRecord,
+  searchMemories,
   sendThreadMessage,
 }

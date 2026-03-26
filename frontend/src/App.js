@@ -130,7 +130,7 @@ export default class App extends Component {
 
     // 컴포넌트 마운트
     this.el.querySelector('.app-header-placeholder').replaceWith(this.header.el)
-    this.header.el.className = 'app-header'
+    this.header.el.className = 'mobile-header'
 
     this.el.querySelector('.app-sidebar-placeholder').replaceWith(this.sidebar.el)
     this.sidebar.el.className = 'app-sidebar'

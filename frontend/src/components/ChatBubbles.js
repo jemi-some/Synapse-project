@@ -1,5 +1,5 @@
 import { Component } from '../core'
-import { getMessages } from '../services/supabase'
+import { getMessages, deleteMemory } from '../services/supabase'
 
 export default class ChatBubbles extends Component {
   constructor() {
@@ -24,6 +24,20 @@ export default class ChatBubbles extends Component {
 
     // 스크롤 이벤트 핸들러 바인딩
     this.handleScroll = this.handleScroll.bind(this)
+
+    // 슬라이드 삭제 이벤트 핸들러 바인딩
+    this.handleTouchStart = this.handleTouchStart.bind(this)
+    this.handleTouchMove = this.handleTouchMove.bind(this)
+    this.handleTouchEnd = this.handleTouchEnd.bind(this)
+    this.handleDeleteClick = this.handleDeleteClick.bind(this)
+    this._swipe = null
+
+    // 이벤트 위임 — this.el은 innerHTML 교체 후에도 리스너가 유지됨
+    this.el.addEventListener('touchstart', this.handleTouchStart, { passive: true })
+    this.el.addEventListener('touchmove', this.handleTouchMove, { passive: false })
+    this.el.addEventListener('touchend', this.handleTouchEnd)
+    this.el.addEventListener('touchcancel', this.handleTouchEnd)
+    this.el.addEventListener('click', this.handleDeleteClick)
   }
 
   /**
@@ -54,7 +68,7 @@ export default class ChatBubbles extends Component {
       console.log(`${messages.length}개의 메시지를 로드했습니다.`)
 
       // 메시지를 UI 형식으로 변환
-      this.state.messages = messages.map(msg => this.convertMessageToUI(msg))
+      this.state.messages = messages.map(msg => this.convertMessageToUI(msg)).filter(Boolean)
       this.state.hasMore = hasMore
       this.state.oldestCursor = messages.length > 0 ? messages[0].created_at : null
       this.state.isVisible = true
@@ -112,7 +126,7 @@ export default class ChatBubbles extends Component {
       const oldScrollHeight = scrollContainer ? scrollContainer.scrollHeight : 0
 
       // 오래된 메시지를 기존 메시지 앞에 추가
-      const newMessages = messages.map(msg => this.convertMessageToUI(msg))
+      const newMessages = messages.map(msg => this.convertMessageToUI(msg)).filter(Boolean)
       this.state.messages = [...newMessages, ...this.state.messages]
       this.state.hasMore = hasMore
       this.state.oldestCursor = messages.length > 0 ? messages[0].created_at : this.state.oldestCursor
@@ -167,60 +181,181 @@ export default class ChatBubbles extends Component {
     }
   }
 
+  // ── 슬라이드 삭제 ──────────────────────────────────────────
+
+  handleTouchStart(e) {
+    const swipeable = e.target.closest('.record-swipeable')
+    if (!swipeable) return
+    const wrapper = e.target.closest('[data-message-id]')
+    if (!wrapper) return
+    const touch = e.touches[0]
+    this._swipe = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      messageId: wrapper.dataset.messageId,
+      swipeable,
+      initiated: false,
+      currentX: 0,
+    }
+  }
+
+  handleTouchMove(e) {
+    if (!this._swipe) return
+    const touch = e.touches[0]
+    const dx = touch.clientX - this._swipe.startX
+    const dy = touch.clientY - this._swipe.startY
+
+    if (!this._swipe.initiated) {
+      // 방향 판정: 수직 스크롤이면 취소
+      if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return
+      if (Math.abs(dy) > Math.abs(dx)) { this._swipe = null; return }
+      if (dx >= 0) { this._swipe = null; return } // 우측 스와이프 무시
+      this._swipe.initiated = true
+    }
+
+    e.preventDefault()
+    const translateX = Math.max(dx, -76)
+    this._swipe.currentX = translateX
+    this._swipe.swipeable.style.transition = 'none'
+    this._swipe.swipeable.style.transform = `translateX(${translateX}px)`
+  }
+
+  handleTouchEnd() {
+    if (!this._swipe) return
+    const { swipeable, messageId, initiated, currentX } = this._swipe
+    this._swipe = null
+
+    if (!initiated) return
+
+    if (currentX < -56) {
+      // 삭제 확정 — 화면 밖으로 슬라이드 아웃 후 삭제
+      swipeable.style.transition = 'transform 0.2s ease, opacity 0.2s ease'
+      swipeable.style.transform = 'translateX(-110%)'
+      swipeable.style.opacity = '0'
+      setTimeout(() => this.deleteRecord(messageId), 220)
+    } else {
+      // 제자리로 복원
+      swipeable.style.transition = 'transform 0.2s ease'
+      swipeable.style.transform = 'translateX(0)'
+    }
+  }
+
+  handleDeleteClick(e) {
+    const btn = e.target.closest('[data-action="delete"]')
+    if (!btn) return
+    const messageId = btn.dataset.messageId
+    if (messageId) this.deleteRecord(messageId)
+  }
+
+  async deleteRecord(messageId) {
+    const msgIndex = this.state.messages.findIndex(m => m.id === messageId)
+    if (msgIndex === -1) return
+
+    const msg = this.state.messages[msgIndex]
+    const memoryId = msg.memoryId
+
+    // 인접 memory_card + search_v2(유사 기억)도 함께 제거
+    const toRemove = new Set([messageId])
+    let checkIdx = msgIndex + 1
+    const nextMsg = this.state.messages[checkIdx]
+    if (nextMsg?.type === 'memory_card') {
+      toRemove.add(nextMsg.id)
+      checkIdx++
+    }
+    const afterNext = this.state.messages[checkIdx]
+    if (afterNext?.type === 'search_v2') toRemove.add(afterNext.id)
+
+    // 낙관적 UI 업데이트
+    this.state.messages = this.state.messages.filter(m => !toRemove.has(m.id))
+    this.render()
+
+    // DB 삭제
+    if (memoryId) {
+      const { error } = await deleteMemory(memoryId)
+      if (error) console.error('deleteMemory 실패:', error)
+    }
+  }
+
   /**
    * DB 메시지를 UI 형식으로 변환
    */
   convertMessageToUI(dbMessage) {
-    // action_data가 있으면 action 타입으로 처리 (검색 결과 등)
-    if (dbMessage.action_data && dbMessage.role === 'assistant') {
+    // V2: memory_card + assistant → 기록 저장 완료 카드
+    if (dbMessage.message_type === 'memory_card' && dbMessage.role === 'assistant') {
       return {
         id: dbMessage.id,
-        type: 'action',
-        actionData: dbMessage.action_data,
-        summary: dbMessage.content || '',
-        isStreaming: false,
-        createdAt: dbMessage.created_at, // 날짜 구분선용
-      }
-    }
-
-    // AI 사진 메타데이터 응답: memory_id가 있는 assistant 메시지
-    if (dbMessage.role === 'assistant' && dbMessage.memories?.metadata) {
-      const mem = dbMessage.memories
-      const rawDate = mem.metadata?.dateTime?.original
-      const dateText = rawDate
-        ? new Date(rawDate).toLocaleString('ko-KR', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          })
-        : ''
-      const locationText = mem.metadata?.gps?.shortAddress || mem.metadata?.gps?.address || '위치 정보 없음'
-      return {
-        id: dbMessage.id,
-        type: 'photo_meta',
-        date: dateText,
-        location: locationText,
+        type: 'memory_card',
+        userText: dbMessage.memories?.user_text || '',
+        locationName: dbMessage.memories?.location_name || null,
         isStreaming: false,
         createdAt: dbMessage.created_at,
       }
     }
 
-    const message = {
+    // V2: memory_card + user → 사진 업로드 메시지 (구 'image' 타입에서 마이그레이션됨)
+    if (dbMessage.message_type === 'memory_card' && dbMessage.role === 'user') {
+      const memImages = dbMessage.memories?.memory_images
+      const imageUrl = Array.isArray(memImages) && memImages.length > 0
+        ? memImages[0].image_url
+        : null
+      return {
+        id: dbMessage.id,
+        type: 'user',
+        content: dbMessage.memories?.user_text || dbMessage.content || '',
+        imageUrl,
+        memoryId: dbMessage.memory_id || null,
+        isStreaming: false,
+        createdAt: dbMessage.created_at,
+      }
+    }
+
+    // V2: assistant_reply → memory_card로 표시
+    if (dbMessage.role === 'assistant' && dbMessage.message_type === 'assistant_reply') {
+      return {
+        id: dbMessage.id,
+        type: 'memory_card',
+        userText: dbMessage.memories?.user_text || '',
+        locationName: dbMessage.memories?.location_name || null,
+        isStreaming: false,
+        createdAt: dbMessage.created_at,
+      }
+    }
+
+    // action_data가 있으면 포맷에 따라 분기
+    if (dbMessage.action_data && dbMessage.role === 'assistant') {
+      const ad = dbMessage.action_data
+      // photos/memos 구조 → search_v2로 복원 (유사 기억 탐색 결과)
+      if (Array.isArray(ad.photos) || Array.isArray(ad.memos)) {
+        return {
+          id: dbMessage.id,
+          type: 'search_v2',
+          photos: ad.photos || [],
+          memos: ad.memos || [],
+          total: ad.total || 0,
+          summary: ad.summary || dbMessage.content || '',
+          isStreaming: false,
+          createdAt: dbMessage.created_at,
+        }
+      }
+      // 레거시 action 타입
+      return {
+        id: dbMessage.id,
+        type: 'action',
+        actionData: ad,
+        summary: dbMessage.content || '',
+        isStreaming: false,
+        createdAt: dbMessage.created_at,
+      }
+    }
+
+    return {
       id: dbMessage.id,
       type: dbMessage.role === 'user' ? 'user' : 'ai',
       content: dbMessage.content || '',
+      memoryId: dbMessage.role === 'user' ? (dbMessage.memory_id || null) : null,
       isStreaming: false,
       createdAt: dbMessage.created_at,
     }
-
-    // 사진 메시지: memories JOIN으로 가져온 file_url 사용
-    if (dbMessage.message_type === 'image' && dbMessage.memories?.file_url) {
-      message.imageUrl = dbMessage.memories.file_url
-    }
-
-    return message
   }
 
   setPreviewMode(previewType = 'ai_text') {
@@ -708,6 +843,29 @@ export default class ChatBubbles extends Component {
     this.render()
   }
 
+  switchToSearchMode() {
+    // 기록 세션 ID 보존 후 화면 비우기
+    this._savedSessionId = this.currentSessionId
+    this.state.messages = []
+    this.state.hasMore = false
+    this.state.oldestCursor = null
+    this.currentSessionId = null
+    this.render()
+  }
+
+  async switchToRecordMode() {
+    // 보존된 세션 ID로 메시지 복원
+    const sessionId = this._savedSessionId || window.app?.currentSessionId
+    if (sessionId) {
+      await this.loadMessages(sessionId)
+    } else {
+      this.state.messages = []
+      this.state.hasMore = true
+      this.state.oldestCursor = null
+      this.render()
+    }
+  }
+
   hideLoadingBubble() {
     this.state.isLoading = false
     this.stopLoadingMessages()
@@ -769,9 +927,6 @@ export default class ChatBubbles extends Component {
         dateSeparator = this.renderDateSeparator(message.createdAt)
       }
 
-      const timeText = this.formatTimeOnly(message.createdAt)
-      const timeHtml = timeText ? `<span class="bubble-time">${timeText}</span>` : ''
-
       let messageHtml = ''
       if (message.type === 'ai') {
         const isCurrentlyStreaming = message.isStreaming && this.state.currentStreamingId === message.id
@@ -785,7 +940,36 @@ export default class ChatBubbles extends Component {
                 </div>
               </div>
             </div>
-            ${timeHtml}
+          </div>
+        `
+      } else if (message.type === 'memory_card') {
+        // 직전 메시지가 텍스트 user 메시지면 record_card footer에 통합 → 독립 렌더링 스킵
+        const prevMsg = index > 0 ? this.state.messages[index - 1] : null
+        const isAttached = prevMsg?.type === 'user' && !prevMsg.imageUrl && prevMsg.content
+        if (isAttached) {
+          messageHtml = ''
+        } else {
+          // 사진 업로드 등 독립 memory_card
+          const d = new Date(message.createdAt)
+          const timeStr = d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+          const locationStr = message.locationName
+            ? `<span class="material-symbols-outlined memory-card-icon" style="font-size:13px">location_on</span><span class="memory-card-text">${this.escapeHtml(message.locationName)}</span>`
+            : ''
+          messageHtml = `
+            <div class="memory-card-text-row ${bubbleClass}">
+              <span class="material-symbols-outlined memory-card-icon">check_circle</span>
+              <span class="memory-card-text">${timeStr}</span>
+              ${locationStr}
+            </div>
+          `
+        }
+      } else if (message.type === 'record_card') {
+        // 메인 화면 기록 카드 — 우측 배치
+        messageHtml = `
+          <div class="record-card-wrapper ${bubbleClass}">
+            <div class="record-card">
+              <div class="record-card-content">${this.escapeHtml(message.content)}</div>
+            </div>
           </div>
         `
       } else if (message.type === 'action') {
@@ -797,7 +981,6 @@ export default class ChatBubbles extends Component {
                 <div class="bubble-text">${this.escapeHtml(message.summary)}</div>
               </div>
             </div>
-            ${timeHtml}
           </div>
         ` : ''
         let cardsHtml = ''
@@ -807,43 +990,85 @@ export default class ChatBubbles extends Component {
           cardsHtml = this.renderMemoList(message.actionData.results, message.id, bubbleClass)
         }
         messageHtml = summaryBubble + cardsHtml
-      } else if (message.type === 'photo_meta') {
-        messageHtml = this.renderPhotoMeta(message.date, message.location, bubbleClass)
-      } else if (message.type === 'diary') {
-        messageHtml = `
-          <div class="diary-bubble glass-bubble ${bubbleClass}">
-            <div class="bubble-content">
-              <div class="bubble-text">${this.escapeHtml(message.content)}</div>
+      } else if (message.type === 'search_v2') {
+        // V2 검색 결과: photos + memos 그룹 분리 렌더링
+        const summaryBubble = `
+          <div class="ai-bubble-wrapper">
+            <div class="ai-bubble glass-bubble ${bubbleClass}">
+              <div class="bubble-content">
+                <div class="bubble-text">${this.escapeHtml(message.summary)}</div>
+              </div>
             </div>
           </div>
         `
+        const photosHtml = message.photos.length > 0
+          ? this.renderPhotoCards(message.photos, message.id, bubbleClass)
+          : ''
+        const memosHtml = message.memos.length > 0
+          ? this.renderMemoList(message.memos, message.id, bubbleClass)
+          : ''
+        messageHtml = summaryBubble + photosHtml + memosHtml
       } else {
         const hasImage = !!message.imageUrl
         const hasText = typeof message.content === 'string' && message.content.trim().length > 0
 
-        const imageBlock = hasImage ? `
-          <div class="user-image-wrapper">
-            <img src="${message.imageUrl}" alt="사용자 첨부 이미지" class="bubble-image" />
-          </div>
-        ` : ''
+        // 텍스트만 있는 경우: record_card를 wrapper 없이 직접 렌더링 (좌측 full-width)
+        if (hasText && !hasImage) {
+          // 다음 메시지가 memory_card면 footer로 통합
+          const nextMsg = this.state.messages[index + 1]
+          let footer = ''
+          if (nextMsg?.type === 'memory_card') {
+            const d = new Date(nextMsg.createdAt)
+            const timeStr = d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+            const locationStr = nextMsg.locationName
+              ? `<span class="material-symbols-outlined memory-card-icon" style="font-size:13px">location_on</span><span class="memory-card-text">${this.escapeHtml(nextMsg.locationName)}</span>`
+              : ''
+            footer = `
+              <div class="record-card-footer">
+                <span class="material-symbols-outlined memory-card-icon">check_circle</span>
+                <span class="memory-card-text">${timeStr}</span>
+                ${locationStr}
+              </div>
+            `
+          }
 
-        const textBlock = hasText ? `
-          <div class="user-bubble glass-bubble">
-            <div class="bubble-content">
-              <div class="bubble-text">${this.escapeHtml(message.content)}</div>
+          messageHtml = `
+            <div class="record-card-wrapper ${bubbleClass}" data-message-id="${message.id}">
+              <div class="record-swipeable">
+                <div class="record-card">
+                  <div class="record-card-content">${this.escapeHtml(message.content)}</div>
+                  ${footer}
+                </div>
+                <button class="record-delete-btn" data-action="delete" data-message-id="${message.id}" aria-label="삭제">
+                  <span class="material-symbols-outlined">delete</span>
+                </button>
+              </div>
             </div>
-          </div>
-        ` : ''
+          `
+        } else {
+          const imageBlock = hasImage ? `
+            <div class="user-image-wrapper">
+              <img src="${message.imageUrl}" alt="사용자 첨부 이미지" class="bubble-image" />
+            </div>
+          ` : ''
 
-        messageHtml = `
-          <div class="user-message-block ${bubbleClass}">
-            ${timeHtml}
-            <div class="user-message-content">
-              ${imageBlock}
-              ${textBlock}
+          const textBlock = hasText ? `
+            <div class="user-bubble glass-bubble">
+              <div class="bubble-content">
+                <div class="bubble-text">${this.escapeHtml(message.content)}</div>
+              </div>
             </div>
-          </div>
-        `
+          ` : ''
+
+          messageHtml = `
+            <div class="user-message-block ${bubbleClass}">
+              <div class="user-message-content">
+                ${imageBlock}
+                ${textBlock}
+              </div>
+            </div>
+          `
+        }
       }
 
       return dateSeparator + messageHtml
@@ -899,54 +1124,76 @@ export default class ChatBubbles extends Component {
     this.scrollToBottom()
   }
 
-  showPhotoUploadResult(date, location) {
-    const messageId = `ai-photo-meta-${Date.now()}`
+  /**
+   * V2: 기록 저장 완료 카드 표시
+   */
+  showMemoryCard(userText = '', locationName = null) {
+    const messageId = `memory-card-${Date.now()}`
     this.state.messages.push({
-      type: 'photo_meta',
-      date,
-      location,
+      type: 'memory_card',
+      userText,
+      locationName,
       id: messageId,
-      isStreaming: false
+      isStreaming: false,
+      createdAt: new Date().toISOString(),
+    })
+    this.render()
+    this.scrollToBottom()
+    return messageId
+  }
+
+  /**
+   * 메인 화면 기록 카드 표시 (우측 배치)
+   */
+  showRecordCard(content = '', locationName = null) {
+    const messageId = `record-card-${Date.now()}`
+    this.state.messages.push({
+      type: 'record_card',
+      content,
+      locationName,
+      id: messageId,
+      isStreaming: false,
+      createdAt: new Date().toISOString(),
     })
     this.render()
     this.scrollToBottom()
   }
 
-  renderPhotoMeta(date, location, bubbleClass = '') {
-    const dateRow = date ? `
-      <div class="photo-card-meta-row">
-        <span class="material-symbols-outlined photo-meta-icon">calendar_today</span>
-        <span class="photo-meta-text">${this.escapeHtml(date)}</span>
-      </div>` : ''
-    const locationRow = `
-      <div class="photo-card-meta-row">
-        <span class="material-symbols-outlined photo-meta-icon">location_on</span>
-        <span class="photo-meta-text">${this.escapeHtml(location || '위치 정보 없음')}</span>
-      </div>`
+  /**
+   * V2: 검색 결과 표시 { photos, memos, total }
+   */
+  showSearchResultsV2(result) {
+    const { photos = [], memos = [], total = 0, summary = null } = result
+    const messageId = `search-v2-${Date.now()}`
+    const summaryText = summary || `${total}건의 기억을 찾았습니다.`
 
-    return `
-      <div class="ai-bubble-wrapper">
-        <div class="ai-bubble glass-bubble ${bubbleClass}">
-          <div class="bubble-content">
-            <div class="photo-card-meta">
-              ${dateRow}
-              ${locationRow}
-            </div>
-          </div>
-        </div>
-      </div>
-    `
+    // photos와 memos를 하나의 action 메시지로 합쳐서 표시
+    this.state.messages.push({
+      type: 'search_v2',
+      photos,
+      memos,
+      total,
+      summary: summaryText,
+      id: messageId,
+      isStreaming: false,
+      createdAt: new Date().toISOString(),
+    })
+
+    this.render()
+    this.scrollToBottom()
   }
 
   renderPhotoCards(results, messageId, bubbleClass = '') {
     if (!results || results.length === 0) return ''
 
     const cardsHtml = results.map(photo => {
-      const url = photo.image_url || photo.file_url || photo.url
+      // V2: imageUrl (camelCase, SearchResultItem 직렬화)
+      // V1 fallback: image_url, file_url, url
+      const url = photo.imageUrl || photo.image_url || photo.file_url || photo.url
 
-      // 날짜 추출: metadata.dateTime.original > capture_time > created_at
+      // 날짜 추출: V2 RPC에서 takenAt(memory_images.taken_at) 반환
       let dateText = ''
-      const rawDate = photo.metadata?.dateTime?.original || photo.capture_time || photo.created_at
+      const rawDate = photo.takenAt || photo.taken_at || photo.capture_time
       if (rawDate) {
         const d = new Date(rawDate)
         const y = d.getFullYear()
@@ -956,7 +1203,7 @@ export default class ChatBubbles extends Component {
       }
 
       // 위치 정보 추출
-      const locationText = photo.metadata?.gps?.shortAddress || ''
+      const locationText = photo.placeName || photo.place_name || '위치 정보 없음'
 
       return `
         <div class="photo-card action-card" data-message-id="${messageId}">
@@ -967,11 +1214,10 @@ export default class ChatBubbles extends Component {
                 <span class="material-symbols-outlined photo-meta-icon">calendar_today</span>
                 <span class="photo-meta-text">${this.escapeHtml(dateText)}</span>
               </div>` : ''}
-            ${locationText ? `
-              <div class="photo-card-meta-row">
-                <span class="material-symbols-outlined photo-meta-icon">location_on</span>
-                <span class="photo-meta-text">${this.escapeHtml(locationText)}</span>
-              </div>` : ''}
+            <div class="photo-card-meta-row">
+              <span class="material-symbols-outlined photo-meta-icon">location_on</span>
+              <span class="photo-meta-text">${this.escapeHtml(locationText)}</span>
+            </div>
           </div>
         </div>
       `
@@ -990,9 +1236,9 @@ export default class ChatBubbles extends Component {
     if (!results || results.length === 0) return ''
 
     const memosHtml = results.map(memo => {
-      // 날짜 추출: metadata.dateTime.original > created_at (RN 앱과 동일 우선순위)
+      // 날짜: createdAt(memories.created_at) 우선, takenAt fallback
       let dateText = ''
-      const rawDate = memo.metadata?.dateTime?.original || memo.created_at
+      const rawDate = memo.createdAt || memo.created_at || memo.takenAt || memo.taken_at
       if (rawDate) {
         const d = new Date(rawDate)
         const m = d.getMonth() + 1
@@ -1000,8 +1246,8 @@ export default class ChatBubbles extends Component {
         dateText = `${m}월 ${day}일`
       }
 
-      // 메모 내용 추출 (우선순위: user_text > context_summary — RN 앱과 동일)
-      const content = memo.user_text || memo.context_summary || '기록'
+      // 메모 내용 추출 (V2 camelCase 우선, V1 snake_case fallback)
+      const content = memo.userText || memo.user_text || memo.combinedText || memo.combined_text || '기록'
 
       return `
         <div class="memo-item" data-message-id="${messageId}">
