@@ -1,11 +1,17 @@
 """
-Supabase 서비스 — 기억(memories) 저장 및 유사도 검색
+Supabase 서비스 — 기록 저장 및 유사도 검색
 
-주요 함수:
-- get_client(): Supabase 클라이언트 싱글톤
-- save_text_memory(): 텍스트 메모를 memories 테이블에 INSERT + 벡터화
-- update_memory_vectorization(): 사진의 vision_tags, context_summary, embedding을 DB에 UPDATE
-- search_memories(): match_memories RPC를 호출하여 유사한 기억 검색
+Logic 2 (record_service.py):
+- save_memory():                텍스트 기록 INSERT (combined_text, combined_embedding)
+- save_record_chat_messages():  raw_input + memory_card 두 행 INSERT
+
+Logic 1 (vectorize_service.py):
+- update_memory_images():           memory_images 테이블 INSERT
+- update_memories_vectorization():  memories 테이블 combined_text + combined_embedding UPDATE
+
+공통:
+- search_memories():     match_memories RPC 호출
+- get_thread_messages(): 스레드 대화 조회
 """
 
 import logging
@@ -36,29 +42,30 @@ def get_client() -> Client:
 
 
 # ============================================================
-# 텍스트 메모 저장 (MCP save_memo 도구가 호출)
+# Logic 2: 텍스트 기록 저장 (record_service.py가 호출)
 # ============================================================
 
-async def save_text_memory(
+async def save_memory(
     user_id: str,
     chat_session_id: str,
     user_text: str,
-    context_summary: str,
-    embedding: list[float],
-) -> dict:
+    combined_text: str,
+    combined_embedding: list[float],
+    location_name: str | None = None,
+) -> list[dict]:
     """
-    텍스트 메모를 memories 테이블에 새로 INSERT합니다.
-    사진 없이 텍스트만 입력한 경우 (시나리오 3: 메모/일기).
+    텍스트 기록을 memories 테이블에 INSERT합니다.
 
     Args:
-        user_id: 사용자 UUID
-        chat_session_id: 현재 세션 UUID
-        user_text: 사용자가 입력한 메모 원본
-        context_summary: AI가 생성한 자연어 요약문
-        embedding: context_summary를 임베딩한 1536차원 벡터
+        user_id:            사용자 UUID
+        chat_session_id:    현재 세션 UUID
+        user_text:          사용자가 입력한 원본 텍스트
+        combined_text:      임베딩용 구조화 텍스트 (Phase A: user_text와 동일)
+        combined_embedding: combined_text의 1536차원 벡터
+        location_name:      기록 시점 위치명 (Nominatim reverse geocoding, 없으면 None)
 
     Returns:
-        생성된 레코드
+        생성된 레코드 목록
     """
     client = get_client()
 
@@ -68,79 +75,188 @@ async def save_text_memory(
             "user_id": user_id,
             "chat_session_id": chat_session_id,
             "user_text": user_text,
-            "context_summary": context_summary,
-            "embedding": embedding,
+            "combined_text": combined_text,
+            "combined_embedding": combined_embedding,
+            "location_name": location_name,
         })
         .execute()
     )
 
-    logger.info("텍스트 메모 저장 완료: user_id=%s", user_id)
+    logger.info("기록 저장 완료: user_id=%s", user_id)
     return result.data
 
 
-# ============================================================
-# 사진 벡터화 결과 저장 (vectorize 파이프라인이 호출)
-# ============================================================
-
-async def update_memory_vectorization(
-    memory_id: str,
-    vision_tags: dict,
-    context_summary: str,
-    embedding: list[float],
-) -> dict:
+async def save_record_chat_messages(
+    session_id: str,
+    user_text: str,
+    memory_id: str | None,
+) -> None:
     """
-    memories 테이블의 특정 레코드에 벡터화 결과를 업데이트합니다.
-    프론트에서 사진 + 메타데이터를 먼저 INSERT한 뒤, 백엔드가 나머지를 UPDATE.
+    기록 저장 시 chat_messages에 두 행을 INSERT합니다.
+
+    저장 행:
+      1. raw_input   — 사용자 입력 원본 (role: user, is_visible: true)
+      2. memory_card — 저장 완료 카드 (role: assistant, is_visible: true, memory_id 포함)
 
     Args:
-        memory_id: memories 테이블의 UUID
-        vision_tags: Vision API가 추출한 시각적 태그
-        context_summary: AI가 생성한 자연어 요약문
-        embedding: context_summary를 임베딩한 1536차원 벡터
+        session_id: chat_sessions UUID
+        user_text:  사용자가 입력한 원본 텍스트
+        memory_id:  저장된 memories UUID
+    """
+    client = get_client()
+
+    rows = [
+        # 1행: 사용자 입력 원본
+        {
+            "chat_session_id": session_id,
+            "role": "user",
+            "message_type": "raw_input",
+            "content": user_text,
+            "memory_id": memory_id,
+            "is_visible": True,
+            "status": "completed",
+        },
+        # 2행: 저장 완료 카드 (프론트에서 memory_card UI로 표시)
+        {
+            "chat_session_id": session_id,
+            "role": "assistant",
+            "message_type": "memory_card",
+            "content": None,
+            "memory_id": memory_id,
+            "is_visible": True,
+            "status": "completed",
+        },
+    ]
+
+    client.table("chat_messages").insert(rows).execute()
+    logger.info("chat_messages INSERT 완료: session_id=%s, memory_id=%s", session_id, memory_id)
+
+
+# ============================================================
+# Logic 1: 사진 벡터화 결과 저장 (vectorize_service.py가 호출)
+# ============================================================
+
+async def update_memory_images(
+    memory_id: str,
+    image_caption: str | None,
+    image_tags: list | None,
+) -> list[dict]:
+    """
+    memory_images 테이블의 Vision 분석 결과(image_caption, image_tags)를 UPDATE합니다.
+
+    프론트에서 이미 INSERT한 행(image_url, taken_at, place_name, exif_json)에
+    백엔드 Vision 분석 결과만 채웁니다.
+
+    Args:
+        memory_id:     memories 테이블 UUID (FK)
+        image_caption: Vision API가 생성한 사진 한 줄 설명
+        image_tags:    Vision API가 추출한 키워드 목록 (JSONB)
 
     Returns:
-        업데이트된 레코드
+        업데이트된 레코드 목록
+    """
+    client = get_client()
+
+    result = (
+        client.table("memory_images")
+        .update({
+            "image_caption": image_caption,
+            "image_tags": image_tags,
+        })
+        .eq("memory_id", memory_id)
+        .execute()
+    )
+
+    logger.info("memory_images Vision 결과 UPDATE 완료: memory_id=%s", memory_id)
+    return result.data
+
+
+async def update_memories_vectorization(
+    memory_id: str,
+    combined_text: str,
+    combined_embedding: list[float],
+) -> list[dict]:
+    """
+    memories 테이블에 combined_text + combined_embedding을 UPDATE합니다.
+
+    Args:
+        memory_id:          memories 테이블 UUID
+        combined_text:      임베딩용 구조화 텍스트
+        combined_embedding: combined_text의 1536차원 벡터
+
+    Returns:
+        업데이트된 레코드 목록
     """
     client = get_client()
 
     result = (
         client.table("memories")
         .update({
-            "vision_tags": vision_tags,
-            "context_summary": context_summary,
-            "embedding": embedding,
+            "combined_text": combined_text,
+            "combined_embedding": combined_embedding,
         })
         .eq("id", memory_id)
         .execute()
     )
 
-    logger.info("벡터화 저장 완료: memory_id=%s", memory_id)
+    logger.info("memories 벡터화 업데이트 완료: memory_id=%s", memory_id)
     return result.data
 
 
 # ============================================================
-# 유사도 검색 (match_memories RPC)
+# 공통: 기억 임베딩 조회 (유사 기억 탐색용)
+# ============================================================
+
+async def get_memory_embedding(memory_id: str) -> list[float] | None:
+    """
+    특정 기억의 combined_embedding을 반환합니다.
+    아직 벡터화되지 않은 경우(None) 또는 기억이 없으면 None을 반환합니다.
+
+    Args:
+        memory_id: memories 테이블 UUID
+
+    Returns:
+        1536차원 임베딩 벡터 또는 None
+    """
+    client = get_client()
+
+    result = (
+        client.table("memories")
+        .select("combined_embedding")
+        .eq("id", memory_id)
+        .single()
+        .execute()
+    )
+
+    if not result.data:
+        return None
+
+    return result.data.get("combined_embedding")
+
+
+# ============================================================
+# 공통: 유사도 검색 (match_memories RPC)
 # ============================================================
 
 async def search_memories(
     query_embedding: list[float],
     user_id: str,
-    threshold: float = 0.3,
+    threshold: float = 0.25,
     count: int = 5,
 ) -> list[dict]:
     """
-    사용자의 검색 쿼리 벡터와 유사한 기억(사진+메모)을 찾습니다.
+    사용자의 검색 쿼리 벡터와 유사한 기억을 찾습니다.
     DB의 match_memories RPC 함수를 호출합니다.
 
     Args:
         query_embedding: 검색어를 임베딩한 1536차원 벡터
-        user_id: 현재 사용자 UUID (내 기억만 검색)
-        threshold: 유사도 임계치 (0~1, 높을수록 엄격)
-        count: 최대 반환 개수
+        user_id:         현재 사용자 UUID (내 기억만 검색)
+        threshold:       유사도 임계치 (0~1, 높을수록 엄격)
+        count:           최대 반환 개수
 
     Returns:
         유사도 내림차순으로 정렬된 기억 목록
-        각 항목: { id, chat_session_id, file_url, file_name, user_text, metadata, vision_tags, context_summary, similarity }
+        각 항목: { id, chat_session_id, user_text, combined_text, created_at, image_url, image_caption, image_tags, taken_at, place_name, similarity }
     """
     client = get_client()
 
@@ -159,7 +275,7 @@ async def search_memories(
 
 
 # ============================================================
-# 스레드 대화 조회
+# 공통: 스레드 대화 조회
 # ============================================================
 
 async def get_thread_messages(
@@ -170,13 +286,12 @@ async def get_thread_messages(
 
     Returns:
         {
-            "parent": { id, content, role, message_type, ... },  — 부모 메시지 (검색 결과 등)
-            "messages": [ { id, content, role, ... }, ... ]       — 스레드 내 이전 대화 (시간순)
+            "parent": { id, content, role, message_type, ... },
+            "messages": [ { id, content, role, ... }, ... ]
         }
     """
     client = get_client()
 
-    # 부모 메시지 조회
     parent_result = (
         client.table("chat_messages")
         .select("*")
@@ -185,7 +300,6 @@ async def get_thread_messages(
         .execute()
     )
 
-    # 스레드 내 모든 대화 조회 (시간순 정렬)
     thread_result = (
         client.table("chat_messages")
         .select("*")
@@ -198,4 +312,3 @@ async def get_thread_messages(
         "parent": parent_result.data,
         "messages": thread_result.data,
     }
-
