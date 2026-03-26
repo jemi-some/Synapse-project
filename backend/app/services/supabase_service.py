@@ -112,6 +112,7 @@ async def save_record_chat_messages(
             "role": "user",
             "message_type": "raw_input",
             "content": user_text,
+            "memory_id": memory_id,
             "is_visible": True,
             "status": "completed",
         },
@@ -200,6 +201,37 @@ async def update_memories_vectorization(
 
     logger.info("memories 벡터화 업데이트 완료: memory_id=%s", memory_id)
     return result.data
+
+
+# ============================================================
+# 공통: 기억 임베딩 조회 (유사 기억 탐색용)
+# ============================================================
+
+async def get_memory_embedding(memory_id: str) -> list[float] | None:
+    """
+    특정 기억의 combined_embedding을 반환합니다.
+    아직 벡터화되지 않은 경우(None) 또는 기억이 없으면 None을 반환합니다.
+
+    Args:
+        memory_id: memories 테이블 UUID
+
+    Returns:
+        1536차원 임베딩 벡터 또는 None
+    """
+    client = get_client()
+
+    result = (
+        client.table("memories")
+        .select("combined_embedding")
+        .eq("id", memory_id)
+        .single()
+        .execute()
+    )
+
+    if not result.data:
+        return None
+
+    return result.data.get("combined_embedding")
 
 
 # ============================================================

@@ -22,6 +22,65 @@ from app.services.openai_service import create_embedding
 logger = logging.getLogger(__name__)
 
 
+async def search_related_memories(
+    memory_id: str,
+    user_id: str,
+    threshold: float = 0.45,
+    count: int = 3,
+) -> dict:
+    """
+    방금 저장된 기억과 유사한 과거 기억을 찾습니다. (C-0)
+
+    기록 저장 직후 background에서 호출됩니다.
+    자기 자신은 결과에서 제외됩니다.
+
+    Args:
+        memory_id: 방금 저장된 memories UUID
+        user_id:   사용자 UUID
+        threshold: 유사도 임계치 (검색(0.25)보다 높게 설정 — 의미 있는 기억만)
+        count:     최대 반환 개수 (자기 자신 제외 후 기준)
+
+    Returns:
+        { "photos": [...], "memos": [...], "total": N }
+        임베딩 없거나 유사 기억 없으면 total=0
+    """
+    from app.services.supabase_service import get_memory_embedding, search_memories
+
+    empty = {"photos": [], "memos": [], "total": 0}
+
+    # 1단계: 방금 저장된 기억의 임베딩 조회
+    embedding = await get_memory_embedding(memory_id)
+    if not embedding:
+        logger.info("임베딩 없음 — 유사 기억 탐색 스킵: memory_id=%s", memory_id)
+        return empty
+
+    # 2단계: 유사도 검색 (자기 자신 제외를 위해 count+1 요청)
+    results = await search_memories(
+        query_embedding=embedding,
+        user_id=user_id,
+        threshold=threshold,
+        count=count + 1,
+    )
+
+    # 3단계: 자기 자신 제외
+    results = [r for r in results if r.get("id") != memory_id][:count]
+
+    if not results:
+        logger.info("유사 기억 없음: memory_id=%s", memory_id)
+        return empty
+
+    photos = [r for r in results if r.get("image_url")]
+    memos = [r for r in results if not r.get("image_url")]
+
+    logger.info("유사 기억 탐색 완료: photos=%d, memos=%d (memory_id=%s)", len(photos), len(memos), memory_id)
+
+    return {
+        "photos": photos,
+        "memos": memos,
+        "total": len(results),
+    }
+
+
 async def search_memories_by_query(
     query: str,
     user_id: str,

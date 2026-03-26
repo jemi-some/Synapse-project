@@ -18,12 +18,29 @@ from app.schemas.memory import (
     VectorizeRequest, VectorizeResponse,
     RecordRequest, RecordResponse,
     SearchRequest, SearchResponse, SearchResultItem,
+    RelatedRequest,
     ThreadRequest, ThreadResponse,
 )
 from app.services.vectorize_service import run_vectorize_pipeline
 from app.services.record_service import save_record
-from app.services.search_service import search_memories_by_query
+from app.services.search_service import search_memories_by_query, search_related_memories
 from app.services.openai_service import thread_conversation
+
+
+def _to_search_item(r: dict) -> SearchResultItem:
+    return SearchResultItem(
+        id=r["id"],
+        chatSessionId=r.get("chat_session_id"),
+        userText=r.get("user_text"),
+        combinedText=r.get("combined_text"),
+        createdAt=r.get("created_at"),
+        imageUrl=r.get("image_url"),
+        imageCaption=r.get("image_caption"),
+        imageTags=r.get("image_tags"),
+        takenAt=r.get("taken_at"),
+        placeName=r.get("place_name"),
+        similarity=r["similarity"],
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -125,28 +142,42 @@ async def search_endpoint(req: SearchRequest):
             count=req.count,
         )
 
-        def to_item(r: dict) -> SearchResultItem:
-            return SearchResultItem(
-                id=r["id"],
-                chatSessionId=r.get("chat_session_id"),
-                userText=r.get("user_text"),
-                combinedText=r.get("combined_text"),
-                createdAt=r.get("created_at"),
-                imageUrl=r.get("image_url"),
-                imageCaption=r.get("image_caption"),
-                imageTags=r.get("image_tags"),
-                takenAt=r.get("taken_at"),
-                placeName=r.get("place_name"),
-                similarity=r["similarity"],
-            )
-
         return SearchResponse(
-            photos=[to_item(r) for r in result["photos"]],
-            memos=[to_item(r) for r in result["memos"]],
+            photos=[_to_search_item(r) for r in result["photos"]],
+            memos=[_to_search_item(r) for r in result["memos"]],
             total=result["total"],
         )
     except Exception as e:
         logger.error("검색 실패: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
+# C-0: 기록 후 유사 기억 탐색
+# ============================================================
+
+@router.post("/record-related", response_model=SearchResponse)
+async def record_related_endpoint(req: RelatedRequest):
+    """
+    방금 저장된 기억과 유사한 과거 기억을 탐색합니다. (C-0)
+
+    기록 저장(/api/ai/record) 완료 직후 프론트에서 background로 호출합니다.
+    임베딩이 없거나 유사 기억이 없으면 total=0을 반환합니다. (조용한 실패)
+
+    임계치 0.6 — 검색(0.25)보다 훨씬 높게 설정하여 의미 있는 기억만 노출합니다.
+    """
+    try:
+        result = await search_related_memories(
+            memory_id=req.memoryId,
+            user_id=req.userId,
+        )
+        return SearchResponse(
+            photos=[_to_search_item(r) for r in result["photos"]],
+            memos=[_to_search_item(r) for r in result["memos"]],
+            total=result["total"],
+        )
+    except Exception as e:
+        logger.error("유사 기억 탐색 실패: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
 
