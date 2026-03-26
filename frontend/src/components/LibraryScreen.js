@@ -46,17 +46,20 @@ export default class LibraryScreen extends Component {
       this.state.isLoading = true
       this.render()
 
-      // memories 테이블에서 파일이 있는 기록만 가져오기
+      // V2: memory_images JOIN으로 사진이 있는 기억만 가져오기
       const { data, error } = await supabase
         .from('memories')
-        .select('*')
-        .not('file_url', 'is', null)
+        .select('id, user_text, created_at, memory_images(image_url, taken_at, place_name)')
+        .eq('user_id', this.state.user.id)
+        .not('memory_images', 'is', null)
+        .order('created_at', { ascending: false })
 
       if (error) {
         console.error('사진 불러오기 실패:', error)
         this.state.memories = []
       } else {
-        this.state.memories = data || []
+        // memory_images가 있는 항목만 필터링 (빈 배열 제외)
+        this.state.memories = (data || []).filter(m => m.memory_images && m.memory_images.length > 0)
       }
 
     } catch (error) {
@@ -68,17 +71,11 @@ export default class LibraryScreen extends Component {
     }
   }
 
-  // capture_time 또는 created_at 기반으로 그룹화
+  // taken_at 또는 created_at 기반으로 그룹화
   getGroupedMemories() {
     const groups = {}
 
-    const sortedMemories = [...this.state.memories].sort((a, b) => {
-      const timeA = new Date(this.getMemoryDate(a)).getTime()
-      const timeB = new Date(this.getMemoryDate(b)).getTime()
-      return timeB - timeA // 최신순
-    })
-
-    sortedMemories.forEach(memory => {
+    this.state.memories.forEach(memory => {
       const dateStr = this.formatDate(this.getMemoryDate(memory))
       if (!groups[dateStr]) {
         groups[dateStr] = []
@@ -90,10 +87,9 @@ export default class LibraryScreen extends Component {
   }
 
   getMemoryDate(memory) {
-    if (memory.selected_metadata && memory.selected_metadata.dateTime && memory.selected_metadata.dateTime.original) {
-      return memory.selected_metadata.dateTime.original
-    }
-    return memory.created_at
+    // V2: taken_at(촬영 시각) 우선, 없으면 created_at
+    const img = memory.memory_images?.[0]
+    return img?.taken_at || memory.created_at
   }
 
   formatDate(dateString) {
@@ -145,7 +141,7 @@ export default class LibraryScreen extends Component {
           <div class="gallery-grid">
             ${memories.map(memory => `
               <div class="gallery-item">
-                <img src="${memory.file_url}" alt="${this.escapeHtml(memory.file_name || '사진')}" loading="lazy" />
+                <img src="${memory.memory_images[0]?.image_url || ''}" alt="${this.escapeHtml(memory.user_text || '사진')}" loading="lazy" />
               </div>
             `).join('')}
           </div>

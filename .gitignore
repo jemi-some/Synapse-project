@@ -39,6 +39,7 @@ test-supabase.js
 # ========================
 docs/0_portfolio/
 docs/4_database/*.sql
+schema_v2_design.md
 docs/6_history_and_logs/
 docs/7_react_native/
 AGENT.md
@@ -59,6 +60,7 @@ Resume_Review.md
 Resume.md
 Feature_architecture.md
 TODO.md
+BACKEND_TASK.md
 
 
 # ========================
