@@ -25,11 +25,12 @@ export default class ChatBubbles extends Component {
     // 스크롤 이벤트 핸들러 바인딩
     this.handleScroll = this.handleScroll.bind(this)
 
-    // 슬라이드 삭제 이벤트 핸들러 바인딩
+    // 슬라이드 삭제 / 유사 기억 이벤트 핸들러 바인딩
     this.handleTouchStart = this.handleTouchStart.bind(this)
     this.handleTouchMove = this.handleTouchMove.bind(this)
     this.handleTouchEnd = this.handleTouchEnd.bind(this)
     this.handleDeleteClick = this.handleDeleteClick.bind(this)
+    this.handleRelatedClick = this.handleRelatedClick.bind(this)
     this._swipe = null
 
     // 이벤트 위임 — this.el은 innerHTML 교체 후에도 리스너가 유지됨
@@ -38,6 +39,7 @@ export default class ChatBubbles extends Component {
     this.el.addEventListener('touchend', this.handleTouchEnd)
     this.el.addEventListener('touchcancel', this.handleTouchEnd)
     this.el.addEventListener('click', this.handleDeleteClick)
+    this.el.addEventListener('click', this.handleRelatedClick)
   }
 
   /**
@@ -247,6 +249,16 @@ export default class ChatBubbles extends Component {
     if (messageId) this.deleteRecord(messageId)
   }
 
+  handleRelatedClick(e) {
+    if (e.target.closest('[data-action="delete"]')) return
+    const target = e.target.closest('[data-action="related"]')
+    if (!target) return
+    const memoryId = target.dataset.memoryId
+    if (!memoryId) return
+    const userId = window.app?.user?.id
+    window.app?.relatedPanel?.open(memoryId, userId)
+  }
+
   async deleteRecord(messageId) {
     const msgIndex = this.state.messages.findIndex(m => m.id === messageId)
     if (msgIndex === -1) return
@@ -285,6 +297,7 @@ export default class ChatBubbles extends Component {
       return {
         id: dbMessage.id,
         type: 'memory_card',
+        memoryId: dbMessage.memory_id || null,
         userText: dbMessage.memories?.user_text || '',
         locationName: dbMessage.memories?.location_name || null,
         isStreaming: false,
@@ -314,6 +327,7 @@ export default class ChatBubbles extends Component {
       return {
         id: dbMessage.id,
         type: 'memory_card',
+        memoryId: dbMessage.memory_id || null,
         userText: dbMessage.memories?.user_text || '',
         locationName: dbMessage.memories?.location_name || null,
         isStreaming: false,
@@ -955,8 +969,11 @@ export default class ChatBubbles extends Component {
           const locationStr = message.locationName
             ? `<span class="material-symbols-outlined memory-card-icon" style="font-size:13px">location_on</span><span class="memory-card-text">${this.escapeHtml(message.locationName)}</span>`
             : ''
+          const relatedAttr = message.memoryId
+            ? `data-action="related" data-memory-id="${message.memoryId}"`
+            : ''
           messageHtml = `
-            <div class="memory-card-text-row ${bubbleClass}">
+            <div class="memory-card-text-row ${bubbleClass}" ${relatedAttr}>
               <span class="material-symbols-outlined memory-card-icon">check_circle</span>
               <span class="memory-card-text">${timeStr}</span>
               ${locationStr}
@@ -1017,12 +1034,16 @@ export default class ChatBubbles extends Component {
           // 다음 메시지가 memory_card면 footer로 통합
           const nextMsg = this.state.messages[index + 1]
           let footer = ''
+          let relatedAttr = ''
           if (nextMsg?.type === 'memory_card') {
             const d = new Date(nextMsg.createdAt)
             const timeStr = d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
             const locationStr = nextMsg.locationName
               ? `<span class="material-symbols-outlined memory-card-icon" style="font-size:13px">location_on</span><span class="memory-card-text">${this.escapeHtml(nextMsg.locationName)}</span>`
               : ''
+            if (nextMsg.memoryId) {
+              relatedAttr = `data-action="related" data-memory-id="${nextMsg.memoryId}"`
+            }
             footer = `
               <div class="record-card-footer">
                 <span class="material-symbols-outlined memory-card-icon">check_circle</span>
@@ -1035,7 +1056,7 @@ export default class ChatBubbles extends Component {
           messageHtml = `
             <div class="record-card-wrapper ${bubbleClass}" data-message-id="${message.id}">
               <div class="record-swipeable">
-                <div class="record-card">
+                <div class="record-card" ${relatedAttr}>
                   <div class="record-card-content">${this.escapeHtml(message.content)}</div>
                   ${footer}
                 </div>
@@ -1127,10 +1148,11 @@ export default class ChatBubbles extends Component {
   /**
    * V2: 기록 저장 완료 카드 표시
    */
-  showMemoryCard(userText = '', locationName = null) {
+  showMemoryCard(userText = '', locationName = null, memoryId = null) {
     const messageId = `memory-card-${Date.now()}`
     this.state.messages.push({
       type: 'memory_card',
+      memoryId,
       userText,
       locationName,
       id: messageId,

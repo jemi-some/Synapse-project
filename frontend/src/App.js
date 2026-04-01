@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar'
 import ChatBubbles from './components/ChatBubbles'
 import ChatInput from './components/ChatInput'
 import Toast from './components/Toast'
+import RelatedMemoriesPanel from './components/RelatedMemoriesPanel'
 
 import LoginScreen from './components/LoginScreen'
 import { onAuthStateChange, getCurrentUser } from './services/supabase'
@@ -35,9 +36,11 @@ export default class App extends Component {
       if (event === 'SIGNED_IN' && session?.user) {
         this.loginScreen.hide()
         this.user = session.user
+        if (window.app) window.app.user = session.user
         this.onAuthStateChanged(session.user)
       } else if (event === 'SIGNED_OUT') {
         this.user = null
+        if (window.app) window.app.user = null
         this.loginScreen.show()
       }
     })
@@ -46,6 +49,7 @@ export default class App extends Component {
   onAuthStateChanged(user) {
     if (user) {
       console.log('User logged in:', user.email)
+      if (window.app) window.app.user = user
     }
   }
 
@@ -83,6 +87,7 @@ export default class App extends Component {
     this.chatBubbles = new ChatBubbles()
     this.chatInput = new ChatInput()
     this.toast = new Toast()
+    this.relatedPanel = new RelatedMemoriesPanel()
 
     // 오버레이 생성
     this.sidebarOverlay = document.createElement('div')
@@ -100,6 +105,7 @@ export default class App extends Component {
       toast: this.toast,
       user: this.user,
       currentSessionId: this.currentSessionId,
+      relatedPanel: this.relatedPanel,
       scrollToBottom: (behavior) => this.scrollToBottom(behavior),
       isUserScrolledUp: () => this.isUserScrolledUp(),
       updateUser: (user) => {
@@ -148,6 +154,9 @@ export default class App extends Component {
     // 로그인 화면 마운트 (초기에는 숨김, initAuth가 제어)
     this.el.appendChild(this.loginScreen.el)
     this.loginScreen.hide()
+
+    // 유사 기억 패널 마운트
+    this.el.appendChild(this.relatedPanel.el)
 
     // 사이드바 오버레이 동기화
     if (typeof this.sidebar.syncOverlayState === 'function') {

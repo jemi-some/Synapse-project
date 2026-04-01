@@ -1,5 +1,5 @@
 import { Component } from '../core'
-import { saveRecord, searchMemories, vectorize, fetchRelatedMemories } from '../services/openai'
+import { saveRecord, searchMemories, vectorize } from '../services/openai'
 import { addMessage, updateChatSession, getMessages, uploadFile, saveMemory, insertMemoryImage, createChatSession, supabase } from '../services/supabase'
 import * as exifr from 'exifr'
 import imageCompression from 'browser-image-compression'
@@ -528,7 +528,7 @@ export default class ChatInput extends Component {
           }
 
           // 저장 완료 즉시 카드 표시 (위치는 나중에)
-          const memoryCardId = chatBubbles?.showMemoryCard(textMessage, null)
+          const memoryCardId = chatBubbles?.showMemoryCard(textMessage, null, recordResult?.memoryId)
 
           // 위치 완료 후 UI + DB 업데이트 (background)
           locationPromise.then(async locationName => {
@@ -540,18 +540,6 @@ export default class ChatInput extends Component {
               await supabase.from('memories').update({ location_name: locationName }).eq('id', recordResult.memoryId)
             }
           }).catch(() => {})
-
-          // 유사 기억 탐색 (background — memory_card 표시를 블로킹하지 않음)
-          if (recordResult?.memoryId) {
-            fetchRelatedMemories(recordResult.memoryId, userId).then(async result => {
-              if (result.total > 0 && chatBubbles) {
-                const payload = { ...result, summary: '비슷한 기억이 있어요' }
-                chatBubbles.showSearchResultsV2(payload)
-                // 새로고침 후에도 복원되도록 DB에 저장
-                await addMessage(chatSessionId, '비슷한 기억이 있어요', 'structured_output', 'assistant', payload, recordResult.memoryId)
-              }
-            }).catch(() => {})
-          }
         }
       }
 
