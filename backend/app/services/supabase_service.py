@@ -95,8 +95,7 @@ async def save_record_chat_messages(
     기록 저장 시 chat_messages에 두 행을 INSERT합니다.
 
     저장 행:
-      1. raw_input   — 사용자 입력 원본 (role: user, is_visible: true)
-      2. memory_card — 저장 완료 카드 (role: assistant, is_visible: true, memory_id 포함)
+      1. raw_input — 사용자 입력 원본 (role: user, is_visible: true, memory_id 포함)
 
     Args:
         session_id: chat_sessions UUID
@@ -105,30 +104,17 @@ async def save_record_chat_messages(
     """
     client = get_client()
 
-    rows = [
-        # 1행: 사용자 입력 원본
-        {
-            "chat_session_id": session_id,
-            "role": "user",
-            "message_type": "raw_input",
-            "content": user_text,
-            "memory_id": memory_id,
-            "is_visible": True,
-            "status": "completed",
-        },
-        # 2행: 저장 완료 카드 (프론트에서 memory_card UI로 표시)
-        {
-            "chat_session_id": session_id,
-            "role": "assistant",
-            "message_type": "memory_card",
-            "content": None,
-            "memory_id": memory_id,
-            "is_visible": True,
-            "status": "completed",
-        },
-    ]
+    row = {
+        "chat_session_id": session_id,
+        "role": "user",
+        "message_type": "raw_input",
+        "content": user_text,
+        "memory_id": memory_id,
+        "is_visible": True,
+        "status": "completed",
+    }
 
-    client.table("chat_messages").insert(rows).execute()
+    client.table("chat_messages").insert(row).execute()
     logger.info("chat_messages INSERT 완료: session_id=%s, memory_id=%s", session_id, memory_id)
 
 
