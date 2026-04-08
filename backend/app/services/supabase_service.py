@@ -261,6 +261,33 @@ async def search_memories(
 
 
 # ============================================================
+# 회원 탈퇴: 사용자 데이터 + Auth 계정 삭제
+# ============================================================
+
+async def delete_user(user_id: str) -> None:
+    """
+    사용자의 모든 데이터와 Auth 계정을 삭제합니다.
+
+    삭제 순서:
+      1. memories (FK CASCADE로 memory_images, chat_messages 연쇄 삭제)
+      2. chat_sessions
+      3. Supabase Auth 사용자 계정
+
+    service_role 키를 사용하므로 RLS 우회 및 admin API 접근 가능합니다.
+    """
+    client = get_client()
+
+    client.table("memories").delete().eq("user_id", user_id).execute()
+    logger.info("memories 삭제 완료: user_id=%s", user_id)
+
+    client.table("chat_sessions").delete().eq("user_id", user_id).execute()
+    logger.info("chat_sessions 삭제 완료: user_id=%s", user_id)
+
+    client.auth.admin.delete_user(user_id)
+    logger.info("Auth 계정 삭제 완료: user_id=%s", user_id)
+
+
+# ============================================================
 # 공통: 스레드 대화 조회
 # ============================================================
 
