@@ -97,7 +97,8 @@ class SearchResultItem(BaseModel):
     imageTags: Optional[list] = None
     createdAt: Optional[str] = None            # 기억 생성 시각 (memories.created_at)
     takenAt: Optional[str] = None              # 촬영 시각 (memory_images.taken_at)
-    placeName: Optional[str] = None            # 촬영 장소 (memory_images.place_name)
+    placeName: Optional[str] = None            # 촬영 장소 (memory_images.place_name) — 사진 기억
+    locationName: Optional[str] = None         # GPS 위치명 (memories.location_name) — 텍스트 기억
     similarity: float
 
 

@@ -39,6 +39,7 @@ def _to_search_item(r: dict) -> SearchResultItem:
         imageTags=r.get("image_tags"),
         takenAt=r.get("taken_at"),
         placeName=r.get("place_name"),
+        locationName=r.get("location_name"),
         similarity=r["similarity"],
     )
 
