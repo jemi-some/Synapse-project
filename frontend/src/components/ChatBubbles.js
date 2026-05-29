@@ -367,6 +367,7 @@ export default class ChatBubbles extends Component {
       type: dbMessage.role === 'user' ? 'user' : 'ai',
       content: dbMessage.content || '',
       memoryId: dbMessage.role === 'user' ? (dbMessage.memory_id || null) : null,
+      locationName: dbMessage.role === 'user' ? (dbMessage.memories?.location_name || null) : null,
       isStreaming: false,
       createdAt: dbMessage.created_at,
     }
@@ -1044,6 +1045,21 @@ export default class ChatBubbles extends Component {
             if (nextMsg.memoryId) {
               relatedAttr = `data-action="related" data-memory-id="${nextMsg.memoryId}"`
             }
+            footer = `
+              <div class="record-card-footer">
+                <span class="material-symbols-outlined memory-card-icon">check_circle</span>
+                <span class="memory-card-text">${timeStr}</span>
+                ${locationStr}
+              </div>
+            `
+          } else if (message.memoryId) {
+            // DB에서 로드된 raw_input — memory_card 행 없이 자신의 createdAt/locationName 사용
+            const d = new Date(message.createdAt)
+            const timeStr = d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+            const locationStr = message.locationName
+              ? `<span class="material-symbols-outlined memory-card-icon" style="font-size:13px">location_on</span><span class="memory-card-text">${this.escapeHtml(message.locationName)}</span>`
+              : ''
+            relatedAttr = `data-action="related" data-memory-id="${message.memoryId}"`
             footer = `
               <div class="record-card-footer">
                 <span class="material-symbols-outlined memory-card-icon">check_circle</span>
