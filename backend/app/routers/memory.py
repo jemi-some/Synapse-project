@@ -20,11 +20,13 @@ from app.schemas.memory import (
     SearchRequest, SearchResponse, SearchResultItem,
     RelatedRequest,
     ThreadRequest, ThreadResponse,
+    DeleteUserRequest,
 )
 from app.services.vectorize_service import run_vectorize_pipeline
 from app.services.record_service import save_record
 from app.services.search_service import search_memories_by_query, search_related_memories
 from app.services.openai_service import thread_conversation
+from app.services.supabase_service import delete_user
 
 
 def _to_search_item(r: dict) -> SearchResultItem:
@@ -179,6 +181,25 @@ async def record_related_endpoint(req: RelatedRequest):
         )
     except Exception as e:
         logger.error("유사 기억 탐색 실패: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================
+# 회원 탈퇴
+# ============================================================
+
+@router.delete("/user")
+async def delete_user_endpoint(req: DeleteUserRequest):
+    """
+    사용자의 모든 데이터와 Auth 계정을 삭제합니다. (회원 탈퇴)
+
+    삭제 항목: memories → memory_images, chat_messages (CASCADE) → chat_sessions → Auth 계정
+    """
+    try:
+        await delete_user(user_id=req.userId)
+        return {"success": True}
+    except Exception as e:
+        logger.error("회원 탈퇴 실패: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
 
