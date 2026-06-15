@@ -62,7 +62,7 @@ export default class MobileHeader extends Component {
           </span>
         </button>
 
-        <div class="app-title-container">
+        <div class="app-title-container" style="cursor:pointer">
           <svg class="constellation-title" viewBox="0 0 100 38" xmlns="http://www.w3.org/2000/svg" aria-label="Synapse">
             <!-- 연결선 -->
             <g stroke="var(--color-primary)" stroke-width="0.6" opacity="0.35" fill="none">
@@ -127,5 +127,9 @@ export default class MobileHeader extends Component {
       themeBtn.addEventListener('click', () => this.handleThemeToggle())
     }
 
+    const logoContainer = this.el.querySelector('.app-title-container')
+    if (logoContainer) {
+      logoContainer.addEventListener('click', () => window.location.reload())
+    }
   }
 }
